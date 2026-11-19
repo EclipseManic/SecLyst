@@ -2,3 +2,4 @@
 -r engines/events/requirements.txt
 -r engines/phishing/requirements.txt
 -r engines/ioc/requirements.txt
+keyring>=25.6,<26

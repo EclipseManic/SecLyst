@@ -53,6 +53,16 @@ class EngineIdentity(BaseModel):
     tool: str
 
 
+class EngineProviderRequest(BaseModel):
+    tool: str
+    provider: str
+    operation: str = "lookup"
+    subject_type: str
+    subject: str
+    options: dict[str, Any] = Field(default_factory=dict)
+    force_refresh: bool = False
+
+
 def service(request: Request) -> JobService:
     if not request.app.state.durable_jobs_enabled:
         raise HTTPException(status_code=503, detail={"code": "durable_jobs_disabled", "message": "Durable jobs are disabled."})
@@ -212,3 +222,25 @@ def cancel_job(
         return {"job_id": cancelled.id, "status": cancelled.status}
     except (JobNotFound, JobConflict, InvalidTransition) as exc:
         raise translate_conflict(exc) from exc
+
+
+@router.post("/providers/request")
+def provider_request(
+    body: EngineProviderRequest,
+    request: Request,
+    engine_token: str | None = Header(default=None, alias="X-SecLyst-Engine-Token"),
+) -> dict[str, Any]:
+    authorize(request, body.tool, engine_token)
+    broker = request.app.state.provider_broker
+    if broker is None:
+        raise HTTPException(status_code=503, detail={"code": "provider_broker_disabled", "message": "Provider broker is disabled."})
+    from ..providers.broker import ProviderRequestCommand
+
+    return broker.request(ProviderRequestCommand(
+        provider=body.provider,
+        operation=body.operation,
+        subject_type=body.subject_type,
+        subject=body.subject,
+        options=body.options,
+        force_refresh=body.force_refresh,
+    )).as_dict()

@@ -104,6 +104,28 @@ class EngineControlClient:
         except (OSError, ValueError, urllib.error.URLError):
             return None
 
+    def provider_request(
+        self,
+        provider: str,
+        operation: str,
+        subject_type: str,
+        subject: str,
+        *,
+        options: dict[str, Any] | None = None,
+        force_refresh: bool = False,
+    ) -> dict[str, Any] | None:
+        if not self.enabled or os.getenv("SECLYST_PROVIDER_BROKER", "").lower() not in {"1", "true", "yes", "on"}:
+            return None
+        return self._request("/internal/v1/providers/request", {
+            "tool": self.tool,
+            "provider": provider,
+            "operation": operation,
+            "subject_type": subject_type,
+            "subject": subject,
+            "options": options or {},
+            "force_refresh": force_refresh,
+        })
+
     def _start_heartbeat(self, job_id: str) -> None:
         stop = threading.Event()
         thread = threading.Thread(target=self._heartbeat_loop, args=(job_id, stop), daemon=True)

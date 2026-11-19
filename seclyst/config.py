@@ -23,6 +23,7 @@ class Settings:
     runtime_dir: Path = ROOT / "runtime"
     database_path: Path = ROOT / "runtime" / "seclyst.db"
     durable_jobs_enabled: bool = False
+    provider_broker_enabled: bool = False
     job_lease_seconds: int = 30
 
     @classmethod
@@ -35,5 +36,6 @@ class Settings:
             runtime_dir=runtime_dir,
             database_path=database_path,
             durable_jobs_enabled=env_bool("SECLYST_DURABLE_JOBS", True),
+            provider_broker_enabled=env_bool("SECLYST_PROVIDER_BROKER", False),
             job_lease_seconds=max(5, int(os.getenv("SECLYST_JOB_LEASE_SECONDS", "30"))),
         )

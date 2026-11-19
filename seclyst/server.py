@@ -132,10 +132,12 @@ class Supervisor:
         *,
         start_engines: bool = True,
         durable_jobs_enabled: bool = False,
+        provider_broker_enabled: bool = False,
     ) -> None:
         self.shell_port = shell_port
         self.start_engines = start_engines
         self.durable_jobs_enabled = durable_jobs_enabled
+        self.provider_broker_enabled = provider_broker_enabled
         self.tools = {
             spec.id: ToolProcess(spec=spec, port=_configured_port(spec))
             for spec in TOOL_SPECS
@@ -150,6 +152,7 @@ class Supervisor:
             "DISABLE_AUTO_OPEN": "1",
             "PYTHONPATH": os.pathsep.join(filter(None, (str(ROOT), env.get("PYTHONPATH", "")))),
             "SECLYST_DURABLE_JOBS": "true" if self.durable_jobs_enabled else "false",
+            "SECLYST_PROVIDER_BROKER": "true" if self.provider_broker_enabled else "false",
             "SECLYST_FRAME_ANCESTORS": " ".join((
                 f"http://127.0.0.1:{self.shell_port}",
                 f"http://localhost:{self.shell_port}",
@@ -162,6 +165,9 @@ class Supervisor:
         else:
             env.pop("SECLYST_CONTROL_URL", None)
             env.pop("SECLYST_ENGINE_TOKEN", None)
+        if self.provider_broker_enabled:
+            env.pop("VT_API_KEY", None)
+            env.pop("VIRUSTOTAL_API_KEY", None)
         data_dir = (RUNTIME / tool.spec.id).resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -468,10 +474,19 @@ def main(argv: list[str] | None = None) -> int:
     job_service = JobService(database, lease_seconds=settings.job_lease_seconds)
     recover_interrupted_jobs(job_service)
 
+    from .providers.adapters import VirusTotalAdapter
+    from .providers.broker import ProviderBroker
+
+    provider_broker = None
+    if settings.provider_broker_enabled:
+        provider_broker = ProviderBroker(database)
+        provider_broker.register(VirusTotalAdapter())
+
     supervisor = Supervisor(
         args.port,
         start_engines=not args.no_engines,
         durable_jobs_enabled=settings.durable_jobs_enabled,
+        provider_broker_enabled=settings.provider_broker_enabled,
     )
     supervisor.start_all()
     app = create_app(
@@ -480,6 +495,7 @@ def main(argv: list[str] | None = None) -> int:
         durable_jobs_enabled=settings.durable_jobs_enabled,
         web_root=WEB_DIST,
         engine_tokens=supervisor.engine_tokens,
+        provider_broker=provider_broker,
     )
     url = f"http://{args.host}:{args.port}/"
 

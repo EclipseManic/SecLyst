@@ -99,3 +99,42 @@ def test_engine_can_adopt_an_orchestrated_job(tmp_path) -> None:
         assert adopted.json() == {"job_id": created["id"], "status": "running", "should_execute": True}
     finally:
         database.dispose()
+
+
+def test_provider_requests_require_engine_identity_and_use_shared_broker(tmp_path) -> None:
+    api, database = make_client(tmp_path)
+
+    class Result:
+        @staticmethod
+        def as_dict():
+            return {"state": "success", "data": {"shared": True}, "cached": True}
+
+    class Broker:
+        calls = []
+
+        def request(self, command):
+            self.calls.append(command)
+            return Result()
+
+    broker = Broker()
+    api.app.state.provider_broker = broker
+    try:
+        body = {
+            "tool": "malware",
+            "provider": "virustotal",
+            "operation": "lookup",
+            "subject_type": "sha256",
+            "subject": "a" * 64,
+        }
+        denied = api.post("/internal/v1/providers/request", json=body)
+        assert denied.status_code == 403
+        accepted = api.post(
+            "/internal/v1/providers/request",
+            headers={"X-SecLyst-Engine-Token": "malware-token"},
+            json=body,
+        )
+        assert accepted.status_code == 200
+        assert accepted.json()["data"] == {"shared": True}
+        assert len(broker.calls) == 1
+    finally:
+        database.dispose()

@@ -22,6 +22,7 @@ def create_app(
     durable_jobs_enabled: bool,
     web_root: Path,
     engine_tokens: dict[str, str] | None = None,
+    provider_broker: Any = None,
 ) -> FastAPI:
     app = FastAPI(title="SecLyst Control Plane", version=__version__, docs_url="/api/docs", redoc_url=None)
     app.state.supervisor = supervisor
@@ -29,6 +30,7 @@ def create_app(
     app.state.durable_jobs_enabled = durable_jobs_enabled
     app.state.web_root = web_root.resolve()
     app.state.engine_tokens = engine_tokens or {}
+    app.state.provider_broker = provider_broker
     app.include_router(jobs_router)
     app.include_router(internal_router)
 

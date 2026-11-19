@@ -14,9 +14,12 @@ def test_initial_migration_creates_job_kernel(tmp_path) -> None:
     database = Database(path)
     try:
         tables = set(inspect(database.engine).get_table_names())
-        assert {"alembic_version", "jobs", "job_inputs", "job_outputs", "job_events", "job_consumers"} <= tables
+        assert {
+            "alembic_version", "jobs", "job_inputs", "job_outputs", "job_events", "job_consumers",
+            "cache_entries", "provider_policies", "provider_requests", "provider_rate_state",
+        } <= tables
         with database.engine.connect() as connection:
-            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0001_job_kernel"
+            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002_provider_broker"
     finally:
         database.dispose()
     assert upgrade_database(path, backup=True) is None
