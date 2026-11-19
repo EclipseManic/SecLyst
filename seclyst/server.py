@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import re
+import secrets
 import socket
 import subprocess
 import sys
@@ -125,13 +126,21 @@ def _port_is_free(port: int) -> bool:
 
 
 class Supervisor:
-    def __init__(self, shell_port: int, *, start_engines: bool = True) -> None:
+    def __init__(
+        self,
+        shell_port: int,
+        *,
+        start_engines: bool = True,
+        durable_jobs_enabled: bool = False,
+    ) -> None:
         self.shell_port = shell_port
         self.start_engines = start_engines
+        self.durable_jobs_enabled = durable_jobs_enabled
         self.tools = {
             spec.id: ToolProcess(spec=spec, port=_configured_port(spec))
             for spec in TOOL_SPECS
         }
+        self.engine_tokens = {tool_id: secrets.token_urlsafe(32) for tool_id in self.tools}
         self._lock = threading.Lock()
 
     def _environment(self, tool: ToolProcess) -> dict[str, str]:
@@ -139,12 +148,20 @@ class Supervisor:
         env.update({
             "PYTHONUNBUFFERED": "1",
             "DISABLE_AUTO_OPEN": "1",
+            "PYTHONPATH": os.pathsep.join(filter(None, (str(ROOT), env.get("PYTHONPATH", "")))),
+            "SECLYST_DURABLE_JOBS": "true" if self.durable_jobs_enabled else "false",
             "SECLYST_FRAME_ANCESTORS": " ".join((
                 f"http://127.0.0.1:{self.shell_port}",
                 f"http://localhost:{self.shell_port}",
                 "http://127.0.0.1:5173",
             )),
         })
+        if self.durable_jobs_enabled:
+            env["SECLYST_CONTROL_URL"] = f"http://127.0.0.1:{self.shell_port}"
+            env["SECLYST_ENGINE_TOKEN"] = self.engine_tokens[tool.spec.id]
+        else:
+            env.pop("SECLYST_CONTROL_URL", None)
+            env.pop("SECLYST_ENGINE_TOKEN", None)
         data_dir = (RUNTIME / tool.spec.id).resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -451,13 +468,18 @@ def main(argv: list[str] | None = None) -> int:
     job_service = JobService(database, lease_seconds=settings.job_lease_seconds)
     recover_interrupted_jobs(job_service)
 
-    supervisor = Supervisor(args.port, start_engines=not args.no_engines)
+    supervisor = Supervisor(
+        args.port,
+        start_engines=not args.no_engines,
+        durable_jobs_enabled=settings.durable_jobs_enabled,
+    )
     supervisor.start_all()
     app = create_app(
         supervisor=supervisor,
         job_service=job_service,
         durable_jobs_enabled=settings.durable_jobs_enabled,
         web_root=WEB_DIST,
+        engine_tokens=supervisor.engine_tokens,
     )
     url = f"http://{args.host}:{args.port}/"
 

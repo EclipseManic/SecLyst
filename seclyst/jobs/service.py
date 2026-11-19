@@ -207,7 +207,30 @@ class JobService:
             self._append_event(session, job, "state", message or f"Job {target_status.value}.")
             return job
 
-    def progress(self, job_id: str, progress: int, *, stage: str, message: str = "") -> Job:
+    def start_external(self, job_id: str, worker_id: str) -> Job:
+        with self.database.session() as session, session.begin():
+            job = self._require_job(session, job_id)
+            require_transition(job.status, JobStatus.RUNNING)
+            now = utcnow()
+            job.status = JobStatus.RUNNING.value
+            job.stage = "running"
+            job.started_at = job.started_at or now
+            job.lease_owner = worker_id
+            job.lease_expires_at = now + timedelta(seconds=self.lease_seconds)
+            job.heartbeat_at = now
+            job.row_version += 1
+            self._append_event(session, job, "state", f"Job started by {worker_id}.")
+            return job
+
+    def progress(
+        self,
+        job_id: str,
+        progress: int,
+        *,
+        stage: str,
+        message: str = "",
+        payload: dict[str, Any] | None = None,
+    ) -> Job:
         if not 0 <= progress <= 100:
             raise ValueError("Job progress must be between 0 and 100.")
         with self.database.session() as session, session.begin():
@@ -217,7 +240,7 @@ class JobService:
             job.progress = progress
             job.stage = stage
             job.row_version += 1
-            self._append_event(session, job, "progress", message, stage=stage, progress=progress)
+            self._append_event(session, job, "progress", message, stage=stage, progress=progress, payload=payload)
             return job
 
     def cancel(self, job_id: str) -> Job:

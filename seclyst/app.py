@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from . import __version__
 from .api.jobs import router as jobs_router
+from .api.internal import router as internal_router
 from .jobs.service import JobService
 
 
@@ -20,13 +21,16 @@ def create_app(
     job_service: JobService,
     durable_jobs_enabled: bool,
     web_root: Path,
+    engine_tokens: dict[str, str] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="SecLyst Control Plane", version=__version__, docs_url="/api/docs", redoc_url=None)
     app.state.supervisor = supervisor
     app.state.job_service = job_service
     app.state.durable_jobs_enabled = durable_jobs_enabled
     app.state.web_root = web_root.resolve()
+    app.state.engine_tokens = engine_tokens or {}
     app.include_router(jobs_router)
+    app.include_router(internal_router)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
