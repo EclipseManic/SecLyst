@@ -34,6 +34,6 @@ class Settings:
         return cls(
             runtime_dir=runtime_dir,
             database_path=database_path,
-            durable_jobs_enabled=env_bool("SECLYST_DURABLE_JOBS", False),
+            durable_jobs_enabled=env_bool("SECLYST_DURABLE_JOBS", True),
             job_lease_seconds=max(5, int(os.getenv("SECLYST_JOB_LEASE_SECONDS", "30"))),
         )

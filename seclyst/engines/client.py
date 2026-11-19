@@ -91,6 +91,19 @@ class EngineControlClient:
             return False
         return bool(self._request(f"/internal/v1/jobs/{job_id}/cancelled", {"tool": self.tool}))
 
+    def status(self, job_id: str) -> dict[str, Any] | None:
+        if not self.enabled:
+            return None
+        request = urllib.request.Request(
+            f"{self.base_url}/api/v1/jobs/{job_id}",
+            headers={"Accept": "application/json", "User-Agent": f"SecLyst-{self.tool}-engine"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=3) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except (OSError, ValueError, urllib.error.URLError):
+            return None
+
     def _start_heartbeat(self, job_id: str) -> None:
         stop = threading.Event()
         thread = threading.Thread(target=self._heartbeat_loop, args=(job_id, stop), daemon=True)

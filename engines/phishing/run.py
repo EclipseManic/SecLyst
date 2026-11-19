@@ -5,6 +5,7 @@ and persistent scan history.
 """
 
 import concurrent.futures
+import hashlib
 import logging
 import os
 import tempfile
@@ -50,6 +51,11 @@ from core import (
 from core.config import SETTINGS
 from core.database import init_db, save_scan, get_scan, list_scans, delete_scan, scan_count
 
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:  # Standalone engine mode outside the SecLyst repository.
+    EngineControlClient = None
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -62,6 +68,9 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 # ── Background task management ────────────────────────────────────
 _tasks = {}
 _tasks_lock = threading.Lock()
+_control = EngineControlClient("phishing") if EngineControlClient else None
+_platform_job_ids = set()
+_platform_job_lock = threading.Lock()
 
 PROGRESS_STEPS = [
     ("upload", "Uploading email file"),
@@ -89,12 +98,41 @@ def _init_progress():
     }
 
 
+def _track_platform_job(job_id):
+    if job_id:
+        with _platform_job_lock:
+            _platform_job_ids.add(job_id)
+
+
+def _is_platform_job(job_id):
+    with _platform_job_lock:
+        return job_id in _platform_job_ids
+
+
+def _finish_platform_job(job_id):
+    with _platform_job_lock:
+        _platform_job_ids.discard(job_id)
+
+
 def _update_step(task_id, step_id, status):
+    platform_update = None
     with _tasks_lock:
         task = _tasks.get(task_id)
         if task and step_id in task["steps"]:
             task["steps"][step_id]["status"] = status
             _update_progress_pct(task)
+            platform_update = (
+                task["progress_pct"],
+                task["current_step"] or task["steps"][step_id]["label"],
+            )
+    if platform_update and _control and _is_platform_job(task_id):
+        _control.progress(
+            task_id,
+            platform_update[0],
+            step_id,
+            platform_update[1],
+            {"step_status": status},
+        )
 
 
 def _update_progress_pct(task):
@@ -114,9 +152,12 @@ def _set_error(task_id, message):
         if task:
             task["status"] = "error"
             task["error"] = message
+    if _control and _is_platform_job(task_id):
+        _control.fail(task_id, "analysis_failed", message)
+        _finish_platform_job(task_id)
 
 
-def _set_result(task_id, result):
+def _set_result(task_id, result, result_ref=None):
     with _tasks_lock:
         task = _tasks.get(task_id)
         if task:
@@ -127,6 +168,9 @@ def _set_result(task_id, result):
             for sid in task["steps"]:
                 if task["steps"][sid]["status"] != "done":
                     task["steps"][sid]["status"] = "done"
+    if _control and _is_platform_job(task_id):
+        _control.complete(task_id, result_ref=result_ref, message="Phishing analysis completed.")
+        _finish_platform_job(task_id)
 
 
 def _run_urlscan_enrichment(url_records, header_findings, original_name):
@@ -381,10 +425,11 @@ def _run_analysis(task_id, file_path, original_name, use_external, resolve_redir
         }
 
         # Save to persistent database
-        save_scan(original_name, verdict, severity, score, result)
+        history_id = save_scan(original_name, verdict, severity, score, result)
+        result["scan_id"] = history_id
 
         _update_step(task_id, "complete", "done")
-        _set_result(task_id, result)
+        _set_result(task_id, result, result_ref=f"engine://phishing/scans/{history_id}")
 
     except Exception as exc:
         logger.exception("Background analysis failed")
@@ -485,20 +530,62 @@ def analyze_upload():
 
     # Save uploaded file to temp location
     tmp_path = None
+    platform_job_id = None
+    platform_execution = False
+    thread_started = False
     try:
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix)
         os.close(tmp_fd)
         uploaded.save(tmp_path)
 
-        task_id = _create_task()
+        requested_job_id = request.headers.get("X-SecLyst-Job-ID", "").strip() or None
+        should_execute = True
+        if _control and _control.enabled:
+            digest = hashlib.sha256()
+            with open(tmp_path, "rb") as uploaded_file:
+                for chunk in iter(lambda: uploaded_file.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            sha256 = digest.hexdigest()
+            platform_job_id, should_execute = _control.register(
+                "analyze",
+                requested_job_id=requested_job_id,
+                inputs=[{
+                    "type": "artifact",
+                    "ref": f"sha256:{sha256}",
+                    "sha256": sha256,
+                    "metadata": {"filename": original_name, "size_bytes": os.path.getsize(tmp_path)},
+                }],
+                parameters={
+                    "external_enrichment": use_external,
+                    "resolve_redirects": resolve_redirects,
+                },
+            )
+        task_id = platform_job_id or _new_task_id()
+        if platform_job_id and should_execute:
+            _track_platform_job(platform_job_id)
+            platform_execution = True
+        if not should_execute:
+            os.remove(tmp_path)
+            return jsonify({
+                "task_id": task_id,
+                "platform_job_id": platform_job_id,
+                "status": "attached",
+            }), 202
+
+        _create_task(task_id)
         thread = threading.Thread(
             target=_run_analysis,
             args=(task_id, tmp_path, original_name, use_external, resolve_redirects),
             daemon=True,
         )
         thread.start()
+        thread_started = True
 
-        return jsonify({"task_id": task_id, "status": "started"}), 202
+        return jsonify({
+            "task_id": task_id,
+            "platform_job_id": platform_job_id,
+            "status": "started",
+        }), 202
     except Exception as exc:
         logger.exception("Failed to start analysis")
         if tmp_path and os.path.exists(tmp_path):
@@ -506,12 +593,24 @@ def analyze_upload():
                 os.remove(tmp_path)
             except Exception:
                 pass
+        if platform_execution and _control:
+            _control.fail(platform_job_id, "engine_start_failed", str(exc))
+            _finish_platform_job(platform_job_id)
+            platform_execution = False
         return jsonify({"error": f"Failed to start analysis: {exc}"}), 500
+    finally:
+        if platform_execution and not thread_started and _control:
+            _control.fail(platform_job_id, "engine_start_failed", "Phishing analysis thread did not start.")
+            _finish_platform_job(platform_job_id)
 
 
-def _create_task():
+def _new_task_id():
     import uuid
-    task_id = uuid.uuid4().hex[:12]
+    return uuid.uuid4().hex[:12]
+
+
+def _create_task(task_id=None):
+    task_id = task_id or _new_task_id()
     with _tasks_lock:
         _tasks[task_id] = _init_progress()
         _tasks[task_id]["status"] = "running"
@@ -525,6 +624,35 @@ def get_progress(task_id):
         task = _tasks.get(task_id)
 
     if task is None:
+        if _control and _control.enabled:
+            platform = _control.status(task_id)
+            if platform:
+                status = platform.get("status")
+                if status == "completed" and platform.get("result_ref", "").startswith("engine://phishing/scans/"):
+                    history_id = platform["result_ref"].rsplit("/", 1)[-1]
+                    scan = get_scan(history_id)
+                    if scan and scan.get("payload"):
+                        return jsonify({
+                            "status": "complete",
+                            "progress_pct": 100,
+                            "current_step": "Complete",
+                            "steps": _init_progress()["steps"],
+                            "result": scan["payload"],
+                        })
+                if status in {"failed", "cancelled", "interrupted"}:
+                    return jsonify({
+                        "status": "error",
+                        "progress_pct": platform.get("progress", 0),
+                        "current_step": platform.get("stage") or status,
+                        "steps": _init_progress()["steps"],
+                        "error": platform.get("error_message") or f"Analysis {status}.",
+                    })
+                return jsonify({
+                    "status": "running",
+                    "progress_pct": platform.get("progress", 0),
+                    "current_step": platform.get("stage") or "Working...",
+                    "steps": _init_progress()["steps"],
+                })
         return jsonify({"error": "Task not found"}), 404
 
     resp = {

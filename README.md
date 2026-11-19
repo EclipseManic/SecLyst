@@ -47,7 +47,7 @@ Linux or macOS:
 
 Seclyst opens at `http://127.0.0.1:7000/`. One Ctrl+C stops the shell and all five copied engines.
 
-The shell is served by the FastAPI control plane. Phase-gated durable job APIs are available under `/api/v1/jobs`; set `SECLYST_DURABLE_JOBS=true` only when testing or integrating the job kernel until engine migration is complete.
+The shell is served by the FastAPI control plane. Durable job APIs are available under `/api/v1/jobs`; Malware and Phishing publish progress and final results there while retaining their original local endpoints. Set `SECLYST_DURABLE_JOBS=false` only as a migration rollback switch.
 
 Use `--no-browser` when automatic browser launch is not wanted. All listeners are restricted to loopback.
 
