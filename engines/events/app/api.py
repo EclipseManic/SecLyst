@@ -18,6 +18,13 @@ from app.config import get_config
 from app.ingest import ingest_files
 from app.logger import get_logger
 from app.report_generator import generate_report
+
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:
+    EngineControlClient = None
+
+_seclyst_control = EngineControlClient("events") if EngineControlClient else None
 from app.utils import has_evtx_magic
 from app import db
 
@@ -183,15 +190,40 @@ def create_app() -> Flask:
 
         db.update_investigation(inv_id, files_processed=[Path(p).name for p in saved_files])
 
+        platform_job_id = None
+        if _seclyst_control and _seclyst_control.enabled:
+            platform_job_id, _should_execute = _seclyst_control.register(
+                "ingest",
+                requested_job_id=request.headers.get("X-SecLyst-Job-ID") or None,
+                inputs=[{
+                    "type": "artifact",
+                    "ref": path,
+                    "metadata": {"filename": Path(path).name},
+                } for path in saved_files],
+                parameters={"investigation_id": inv_id},
+            )
+
         def _runner(sem: threading.Semaphore) -> None:
             try:
                 sem.acquire()
+                if platform_job_id and _seclyst_control:
+                    _seclyst_control.progress(platform_job_id, 5, "ingest", "EVTX ingestion started.")
                 ingest_files(
                     investigation_id=inv_id,
                     file_paths=saved_files,
                     max_events_per_file=cfg.max_events_per_file,
                     store_raw=cfg.store_raw,
                 )
+                if platform_job_id and _seclyst_control:
+                    _seclyst_control.complete(
+                        platform_job_id,
+                        result_ref=f"engine://events/investigations/{inv_id}",
+                        message="EVTX ingestion completed.",
+                    )
+            except Exception as exc:
+                if platform_job_id and _seclyst_control:
+                    _seclyst_control.fail(platform_job_id, "ingest_failed", str(exc))
+                raise
             finally:
                 sem.release()
 
@@ -200,6 +232,7 @@ def create_app() -> Flask:
 
         response = {
             "investigation_id": inv_id,
+            "platform_job_id": platform_job_id,
             "files": [Path(p).name for p in saved_files],
             "errors": errors,
         }
