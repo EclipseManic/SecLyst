@@ -11,6 +11,13 @@ from typing import Optional
 from urllib.parse import urlparse, urlsplit
 from uuid import uuid4
 
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:
+    EngineControlClient = None
+
+_seclyst_control = EngineControlClient("ioc") if EngineControlClient else None
+
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -127,6 +134,43 @@ async def _run_queued_lookup(*args, **kwargs) -> None:
                 task.progress = 100.0
     finally:
         _pending_lookups = max(0, _pending_lookups - 1)
+
+
+async def _mirror_platform_lookup(task_id: str) -> None:
+    if not _seclyst_control or not _seclyst_control.enabled:
+        return
+    last_progress = -1
+    while True:
+        task = await get_task_redis(task_id)
+        if task is None:
+            await asyncio.sleep(0.25)
+            continue
+        progress = int(task.progress or 0)
+        if progress != last_progress:
+            await asyncio.to_thread(
+                _seclyst_control.progress,
+                task_id,
+                progress,
+                task.status or "lookup",
+                f"IOC lookup {task.status}.",
+                {"ioc_type": task.ioc_type or "unknown"},
+            )
+            last_progress = progress
+        if task.status == "done":
+            await asyncio.to_thread(
+                _seclyst_control.complete,
+                task_id,
+                result_ref=f"engine://ioc/tasks/{task_id}",
+                message="IOC lookup completed.",
+            )
+            return
+        if task.status == "error":
+            await asyncio.to_thread(_seclyst_control.fail, task_id, "analysis_failed", task.error or "IOC lookup failed.")
+            return
+        if task.status == "cancelled":
+            await asyncio.to_thread(_seclyst_control.cancel, task_id)
+            return
+        await asyncio.sleep(0.25)
 
 
 def _lookup_task_done(task: asyncio.Task) -> None:
@@ -936,6 +980,18 @@ async def start_lookup(request: LookupRequest, db: AsyncSession = Depends(get_db
         raise HTTPException(status_code=429, detail="Lookup queue is full; retry later")
     _pending_lookups += 1
     task_id = uuid4().hex[:12]
+    if _seclyst_control and _seclyst_control.enabled:
+        platform_id, should_execute = await asyncio.to_thread(
+            _seclyst_control.register,
+            "lookup",
+            requested_job_id=request.task_id,
+            inputs=[{"type": "ioc", "ref": target_ioc, "metadata": {"ioc_type": effective_type}}],
+            parameters={"refresh": request.refresh},
+        )
+        if platform_id:
+            task_id = platform_id
+        if not should_execute:
+            return TaskStatusResponse(task_id=task_id, status="pending", stages={}, ioc_value=target_ioc)
     analysis_kwargs = {
         "task_id": task_id,
         "fp_override": fp_override,
@@ -957,6 +1013,8 @@ async def start_lookup(request: LookupRequest, db: AsyncSession = Depends(get_db
     _inflight_lookups[inflight_key] = task_id
     _lookup_tasks.add(task)
     task.add_done_callback(_lookup_task_done)
+    if _seclyst_control and _seclyst_control.enabled:
+        asyncio.create_task(_mirror_platform_lookup(task_id))
     return TaskStatusResponse(
         task_id=task_id,
         status="pending",
@@ -987,6 +1045,8 @@ async def cancel_task(task_id: str):
         raise HTTPException(status_code=409, detail="Analysis is already complete")
     if not cancel_analysis(task_id):
         raise HTTPException(status_code=409, detail="Analysis is not cancellable")
+    if _seclyst_control and _seclyst_control.enabled:
+        await asyncio.to_thread(_seclyst_control.cancel, task_id)
     return {"task_id": task_id, "status": "cancelling"}
 
 
