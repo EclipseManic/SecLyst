@@ -8,6 +8,8 @@ The control plane owns a separate SQLite WAL database at `runtime/seclyst.db`. A
 
 The provider broker owns VirusTotal credentials, global rate policy, concurrency, circuit state, request audit rows, response caching, and single-flight deduplication across Malware, Phishing, and IOC. Copied engines receive no VirusTotal secret in broker mode. Their existing parsers still normalize provider payloads, so standalone mode remains compatible.
 
+The platform artifact store streams uploads while hashing, stores one immutable object per SHA-256, and records derivation edges separately from bytes. Quarantined objects are returned only as attachments. Relationship references prevent unsafe deletion, while configured byte limits and temporary-file cleanup bound failed uploads.
+
 The shell does not proxy or reinterpret tool requests. Each tool interface communicates with its own backend at the same loopback origin, preserving REST, server-sent event, WebSocket, download, and upload behavior without route rewriting.
 
 The shell mounts a tool frame only on first visit, then keeps that frame mounted and makes inactive frames inert and visually hidden. This preserves browser-side state during navigation without loading all five applications at startup. The retained frame is a presentation optimization only; backend execution must not depend on it.

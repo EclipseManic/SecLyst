@@ -476,11 +476,17 @@ def main(argv: list[str] | None = None) -> int:
 
     from .providers.adapters import VirusTotalAdapter
     from .providers.broker import ProviderBroker
+    from .artifacts import ArtifactStore
 
     provider_broker = None
     if settings.provider_broker_enabled:
         provider_broker = ProviderBroker(database)
         provider_broker.register(VirusTotalAdapter())
+    artifact_store = ArtifactStore(
+        database,
+        settings.runtime_dir / "artifacts",
+        max_bytes=settings.artifact_max_bytes,
+    )
 
     supervisor = Supervisor(
         args.port,
@@ -496,6 +502,7 @@ def main(argv: list[str] | None = None) -> int:
         web_root=WEB_DIST,
         engine_tokens=supervisor.engine_tokens,
         provider_broker=provider_broker,
+        artifact_store=artifact_store,
     )
     url = f"http://{args.host}:{args.port}/"
 

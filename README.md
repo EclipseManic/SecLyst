@@ -79,6 +79,8 @@ External submission features remain disabled by default. Enabling a provider key
 
 Databases, uploads, logs, caches, and engine history are written beneath `runtime/`, which is excluded from version control.
 
+Platform artifacts are streamed into `runtime/artifacts/sha256/`, keyed by SHA-256 and deduplicated atomically. Metadata APIs never render quarantined bytes inline; downloads use attachment disposition, size limits are enforced during streaming, and referenced parent/child artifacts cannot be deleted.
+
 ## Verification
 
 ```powershell
