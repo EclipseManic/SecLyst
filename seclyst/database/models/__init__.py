@@ -1,8 +1,9 @@
 from .job import Job, JobConsumer, JobEvent, JobInput, JobOutput
 from .provider import CacheEntry, ProviderPolicy, ProviderRateState, ProviderRequest
+from .workflow import AnalysisRun, DetectionCandidate
 
 __all__ = [
-    "Artifact", "ArtifactEdge", "CacheEntry", "Job", "JobConsumer", "JobEvent", "JobInput", "JobOutput",
+    "AnalysisRun", "Artifact", "ArtifactEdge", "CacheEntry", "DetectionCandidate", "Job", "JobConsumer", "JobEvent", "JobInput", "JobOutput",
     "ProviderPolicy", "ProviderRateState", "ProviderRequest",
     "ResultObject",
 ]

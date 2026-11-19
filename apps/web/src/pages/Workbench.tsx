@@ -5,6 +5,7 @@ export function Workbench({ onNavigate }: { onNavigate: (page: PageRouteId) => v
   const [question, setQuestion] = useState('');
   const [artifact, setArtifact] = useState<Record<string, unknown> | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const upload = async (file?: File) => {
     if (!file) return;
@@ -18,6 +19,16 @@ export function Workbench({ onNavigate }: { onNavigate: (page: PageRouteId) => v
     } finally {
       setUploading(false);
     }
+  };
+
+  const createRun = async () => {
+    if (!artifact?.id || !question.trim()) return;
+    setCreating(true);
+    try {
+      const response = await fetch('/api/v1/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, artifact_id: artifact.id }) });
+      if (!response.ok) throw new Error(`Run creation failed with HTTP ${response.status}`);
+      onNavigate('dashboard');
+    } finally { setCreating(false); }
   };
 
   return <div className="sc-page">
@@ -44,10 +55,10 @@ export function Workbench({ onNavigate }: { onNavigate: (page: PageRouteId) => v
         <span className="ui-meta block">{String(artifact.original_name)} · {String(artifact.size_bytes)} bytes</span>
       </div>}
       <div className="flex flex-wrap gap-3">
-        <button className="ui-btn ui-btn--primary" type="button" disabled={!question.trim() || !artifact} onClick={() => onNavigate('dashboard')}>Create analysis run</button>
+        <button className="ui-btn ui-btn--primary" type="button" disabled={!question.trim() || !artifact || creating} onClick={() => void createRun()}>{creating ? 'Creating run' : 'Create analysis run'}</button>
         <button className="ui-btn ui-btn--ghost" type="button" onClick={() => onNavigate('dashboard')}>Open existing runs</button>
       </div>
-      <p className="ui-meta">Workflow execution is enabled in the next phase. This phase establishes real artifact intake and removes fabricated platform metrics.</p>
+      <p className="ui-meta">The Email-to-Detection plan records Phishing, attachment analysis, IOC enrichment, event sightings and RuleForge validation as a versioned dependency graph.</p>
     </section>
   </div>;
 }

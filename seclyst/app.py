@@ -13,6 +13,7 @@ from . import __version__
 from .api.jobs import router as jobs_router
 from .api.internal import router as internal_router
 from .api.artifacts import router as artifacts_router
+from .api.runs import router as runs_router
 from .jobs.service import JobService
 
 
@@ -37,6 +38,7 @@ def create_app(
     app.include_router(jobs_router)
     app.include_router(internal_router)
     app.include_router(artifacts_router)
+    app.include_router(runs_router)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
