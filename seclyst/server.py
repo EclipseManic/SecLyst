@@ -11,7 +11,6 @@ import argparse
 import json
 import os
 import re
-import signal
 import socket
 import subprocess
 import sys
@@ -437,23 +436,30 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Seclyst shell port {args.port} is already in use.", file=sys.stderr)
         return 2
 
+    from uvicorn import Config, Server
+
+    from .app import create_app
+    from .config import Settings
+    from .database.migrations import upgrade_database
+    from .database.session import Database
+    from .jobs.recovery import recover_interrupted_jobs
+    from .jobs.service import JobService
+
+    settings = Settings.from_environment()
+    upgrade_database(settings.database_path)
+    database = Database(settings.database_path)
+    job_service = JobService(database, lease_seconds=settings.job_lease_seconds)
+    recover_interrupted_jobs(job_service)
+
     supervisor = Supervisor(args.port, start_engines=not args.no_engines)
     supervisor.start_all()
-    server = build_http_server(args.host, args.port, supervisor)
+    app = create_app(
+        supervisor=supervisor,
+        job_service=job_service,
+        durable_jobs_enabled=settings.durable_jobs_enabled,
+        web_root=WEB_DIST,
+    )
     url = f"http://{args.host}:{args.port}/"
-
-    stop_requested = threading.Event()
-
-    def _stop(_signum: int, _frame: Any) -> None:
-        if not stop_requested.is_set():
-            stop_requested.set()
-            threading.Thread(target=server.shutdown, daemon=True).start()
-
-    signal.signal(signal.SIGINT, _stop)
-    if hasattr(signal, "SIGTERM"):
-        signal.signal(signal.SIGTERM, _stop)
-    if hasattr(signal, "SIGBREAK"):
-        signal.signal(signal.SIGBREAK, _stop)
 
     print(f"Seclyst {__version__} is available at {url}")
     for tool in supervisor.tools.values():
@@ -464,10 +470,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_browser:
         _open_browser_when_ready(url)
     try:
-        server.serve_forever()
+        config = Config(app=app, host=args.host, port=args.port, log_level="info")
+        Server(config).run()
     finally:
-        server.server_close()
         supervisor.stop_all()
+        database.dispose()
     return 0
 
 

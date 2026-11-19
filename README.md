@@ -47,6 +47,8 @@ Linux or macOS:
 
 Seclyst opens at `http://127.0.0.1:7000/`. One Ctrl+C stops the shell and all five copied engines.
 
+The shell is served by the FastAPI control plane. Phase-gated durable job APIs are available under `/api/v1/jobs`; set `SECLYST_DURABLE_JOBS=true` only when testing or integrating the job kernel until engine migration is complete.
+
 Use `--no-browser` when automatic browser launch is not wanted. All listeners are restricted to loopback.
 
 ## Configuration
@@ -80,7 +82,7 @@ python scripts/verify_ui.py
 python scripts/verify_cli.py
 ```
 
-The complete local suite can be run with `.venv\Scripts\python.exe scripts\verify.py` on Windows or `.venv/bin/python scripts/verify.py` on Linux and macOS.
+The complete standalone suite can be run with `.venv\Scripts\python.exe scripts\verify.py` on Windows or `.venv/bin/python scripts/verify.py` on Linux and macOS. Add `--verify-sources` only in the original Combined Project workspace when sibling source directories are expected to match the initial copy baseline.
 
 The final command verifies that the six source directories outside `Seclyst/` still match the baseline captured before this workspace was created. It is intended for the original Combined Project workspace and is not required after exporting Seclyst as a standalone repository.
 

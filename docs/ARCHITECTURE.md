@@ -2,7 +2,9 @@
 
 ## Process Model
 
-`run.py` starts a standard-library supervisor. The supervisor creates runtime directories, starts five copied engines as child processes, serves the built Seclyst shell, and stops every child during shutdown.
+`run.py` starts the FastAPI control plane and its local service supervisor. The supervisor creates runtime directories, starts five copied engines as child processes, serves the built Seclyst shell, and stops every child during shutdown.
+
+The control plane owns a separate SQLite WAL database at `runtime/seclyst.db`. Alembic migrations create the durable job queue and ordered event journal. The job API remains feature-gated until copied engines begin publishing jobs in the next phase.
 
 The shell does not proxy or reinterpret tool requests. Each tool interface communicates with its own backend at the same loopback origin, preserving REST, server-sent event, WebSocket, download, and upload behavior without route rewriting.
 

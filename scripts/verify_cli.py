@@ -9,12 +9,24 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PORTS = (7000, 7101, 7102, 7103, 7104, 7105)
+ENGINE_PORTS = (
+    ("SECLYST_MALWARE_PORT", 7101),
+    ("SECLYST_IOC_PORT", 7102),
+    ("SECLYST_EVENTS_PORT", 7103),
+    ("SECLYST_PHISHING_PORT", 7104),
+    ("SECLYST_RULEFORGE_PORT", 7105),
+)
+
+
+def verification_ports() -> tuple[int, ...]:
+    return (7000, *(int(os.getenv(name, str(default))) for name, default in ENGINE_PORTS))
 
 
 def port_is_free(port: int) -> bool:
@@ -28,10 +40,11 @@ def port_is_free(port: int) -> bool:
 
 
 def main() -> int:
+    ports = verification_ports()
     ready_deadline = time.monotonic() + 15
-    while time.monotonic() < ready_deadline and not all(port_is_free(port) for port in PORTS):
+    while time.monotonic() < ready_deadline and not all(port_is_free(port) for port in ports):
         time.sleep(0.1)
-    if not all(port_is_free(port) for port in PORTS):
+    if not all(port_is_free(port) for port in ports):
         raise SystemExit("Seclyst verification ports must be free before the CLI smoke test.")
 
     creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
@@ -64,6 +77,46 @@ def main() -> int:
         else:
             raise RuntimeError(f"Seclyst launcher did not become ready: {status}")
         print("Documented launcher reached five-of-five engine health.")
+
+        with urllib.request.urlopen("http://127.0.0.1:7000/", timeout=5) as response:
+            shell = response.read().decode("utf-8")
+            assert response.status == 200 and "<title>Seclyst" in shell
+            assert response.headers["X-Frame-Options"] == "DENY"
+        with urllib.request.urlopen("http://127.0.0.1:7000/api/v1/system/health", timeout=5) as response:
+            control_health = json.loads(response.read().decode("utf-8"))
+
+        durable_jobs = bool(control_health["durable_jobs"])
+        if durable_jobs:
+            payload = json.dumps({
+                "tool": "malware",
+                "operation": "cli_smoke",
+                "client_request_id": f"cli-{uuid.uuid4()}",
+            }).encode("utf-8")
+            request = urllib.request.Request(
+                "http://127.0.0.1:7000/api/v1/jobs",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=5) as response:
+                job = json.loads(response.read().decode("utf-8"))
+                assert response.status == 202 and job["status"] == "queued"
+            cancel = urllib.request.Request(
+                f"http://127.0.0.1:7000/api/v1/jobs/{job['id']}/cancel",
+                data=b"",
+                method="POST",
+            )
+            with urllib.request.urlopen(cancel, timeout=5) as response:
+                assert json.loads(response.read().decode("utf-8"))["status"] == "cancelled"
+        else:
+            try:
+                urllib.request.urlopen("http://127.0.0.1:7000/api/v1/jobs", timeout=5)
+            except urllib.error.HTTPError as error:
+                assert error.code == 503
+                assert json.loads(error.read().decode("utf-8"))["error"]["code"] == "durable_jobs_disabled"
+            else:
+                raise RuntimeError("Disabled durable job API unexpectedly accepted a request.")
+        print(f"FastAPI shell and durable job feature gate verified (enabled={durable_jobs}).")
     finally:
         if process.poll() is None:
             process.send_signal(signal.CTRL_BREAK_EVENT if os.name == "nt" else signal.SIGINT)
@@ -76,9 +129,9 @@ def main() -> int:
             process.stdout.close()
 
     deadline = time.monotonic() + 10
-    while time.monotonic() < deadline and not all(port_is_free(port) for port in PORTS):
+    while time.monotonic() < deadline and not all(port_is_free(port) for port in ports):
         time.sleep(0.1)
-    if not all(port_is_free(port) for port in PORTS):
+    if not all(port_is_free(port) for port in ports):
         raise RuntimeError("The Seclyst launcher left one or more service ports occupied.")
     print("Documented launcher stopped all child engines cleanly.")
     return 0

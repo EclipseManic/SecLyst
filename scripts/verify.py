@@ -22,6 +22,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skip-browser", action="store_true")
     parser.add_argument("--skip-audit", action="store_true")
+    parser.add_argument(
+        "--verify-sources",
+        action="store_true",
+        help="also compare sibling source directories with the original copy baseline",
+    )
     args = parser.parse_args()
 
     python = sys.executable
@@ -32,7 +37,7 @@ def main() -> int:
     run([python, "-m", "pytest", "-q"])
     run([
         python, "-m", "ruff", "check",
-        "seclyst", "scripts", "tests",
+        "seclyst", "migrations", "scripts", "tests",
         "engines/malware/run.py", "engines/malware/tests/test_seclyst_defaults.py",
         "engines/phishing/run.py", "engines/phishing/core/database.py",
         "engines/phishing/tests/test_seclyst_contract.py",
@@ -59,11 +64,13 @@ def main() -> int:
         run([python, "scripts/verify_ui.py"])
     run([python, "scripts/verify_cli.py"])
 
-    combined_workspace = ROOT.parent
-    if all((combined_workspace / name).exists() for name in (
-        "secconflux", "Malware Analyzer", "ioc-platform", "Event-Analyzer",
-        "Phishing-Mail-Detector", "RuleForge",
-    )):
+    if args.verify_sources:
+        combined_workspace = ROOT.parent
+        if not all((combined_workspace / name).exists() for name in (
+            "secconflux", "Malware Analyzer", "ioc-platform", "Event-Analyzer",
+            "Phishing-Mail-Detector", "RuleForge",
+        )):
+            raise SystemExit("Sibling source directories are unavailable for source verification.")
         run([python, "scripts/source_snapshot.py"])
 
     print("\nAll Seclyst verification checks passed.")
