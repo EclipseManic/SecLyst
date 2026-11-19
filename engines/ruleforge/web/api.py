@@ -39,6 +39,13 @@ from pathlib import Path
 from typing import Any, Callable, Final
 from urllib.parse import parse_qs, unquote, urlparse
 
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:
+    EngineControlClient = None
+
+_seclyst_control = EngineControlClient("ruleforge") if EngineControlClient else None
+
 from engine import dialects, synthesize
 from engine.codec import rule_from_dict, rule_to_dict
 from engine.evaluate import Budget, Caveat, EvaluationResult, Trace
@@ -546,6 +553,14 @@ class Api:
         `no_match`, because a confident no on evidence the engine never had is
         the one answer a detection engineer must never be given.
         """
+        requested_job_id = body.get("_seclyst_job_id")
+        platform_job_id = None
+        if requested_job_id and _seclyst_control and _seclyst_control.enabled:
+            platform_job_id, _should_execute = _seclyst_control.register(
+                "evaluate",
+                requested_job_id=str(requested_job_id),
+                parameters={"event_count": len(body.get("events") or [])},
+            )
         rule = self._rule(body)
         events = self._events(body)
         if len(events) > MAX_EVENTS:
@@ -557,8 +572,22 @@ class Api:
                 f"not being debugged, it is being hoped about.",
                 "api",
             )
-        result = evaluate(rule, events, budget=Budget())
-        return _result_dict(result)
+        try:
+            if platform_job_id and _seclyst_control:
+                _seclyst_control.progress(platform_job_id, 25, "evaluate", "Rule evaluation running.")
+            result = evaluate(rule, events, budget=Budget())
+            response = _result_dict(result)
+            if platform_job_id and _seclyst_control:
+                _seclyst_control.complete(
+                    platform_job_id,
+                    result_ref=f"engine://ruleforge/evaluations/{platform_job_id}",
+                    message="Rule evaluation completed.",
+                )
+            return response
+        except Exception as exc:
+            if platform_job_id and _seclyst_control:
+                _seclyst_control.fail(platform_job_id, "evaluation_failed", str(exc))
+            raise
 
     # -- evidence: datasets and replay runs -------------------------------
 
