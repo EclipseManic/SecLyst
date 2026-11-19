@@ -33,13 +33,13 @@ def test_supervisor_redirects_mutable_engine_state_to_runtime() -> None:
     for tool in supervisor.tools.values():
         env = supervisor._environment(tool)
         if tool.spec.id == "malware":
-            assert "runtime\\malware" in env["SECLYST_MALWARE_DATA_DIR"].lower()
+            assert env["SECLYST_MALWARE_DATA_DIR"].replace("\\", "/").lower().endswith("/runtime/malware")
         elif tool.spec.id == "ioc":
-            assert "/runtime/ioc/ioc_platform.db" in env["DATABASE_URL"].replace("\\", "/").lower()
+            assert env["DATABASE_URL"].replace("\\", "/").lower().endswith("/runtime/ioc/ioc_platform.db")
         elif tool.spec.id == "events":
-            assert "runtime\\events" in env["EVTX_VIEWER_DATA_DIR"].lower()
+            assert env["EVTX_VIEWER_DATA_DIR"].replace("\\", "/").lower().endswith("/runtime/events")
         elif tool.spec.id == "phishing":
-            assert "runtime\\phishing" in env["SECLYST_PHISHING_DATA_DIR"].lower()
+            assert env["SECLYST_PHISHING_DATA_DIR"].replace("\\", "/").lower().endswith("/runtime/phishing")
         elif tool.spec.id == "ruleforge":
-            assert "runtime\\ruleforge" in env["RULEFORGE_HOME"].lower()
+            assert env["RULEFORGE_HOME"].replace("\\", "/").lower().endswith("/runtime/ruleforge")
         assert "http://127.0.0.1:7000" in env["SECLYST_FRAME_ANCESTORS"]
