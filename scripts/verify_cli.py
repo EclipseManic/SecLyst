@@ -19,6 +19,7 @@ PORTS = (7000, 7101, 7102, 7103, 7104, 7105)
 
 def port_is_free(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             probe.bind(("127.0.0.1", port))
         except OSError:
@@ -27,6 +28,9 @@ def port_is_free(port: int) -> bool:
 
 
 def main() -> int:
+    ready_deadline = time.monotonic() + 15
+    while time.monotonic() < ready_deadline and not all(port_is_free(port) for port in PORTS):
+        time.sleep(0.1)
     if not all(port_is_free(port) for port in PORTS):
         raise SystemExit("Seclyst verification ports must be free before the CLI smoke test.")
 
