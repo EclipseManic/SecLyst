@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # ── Feature flags ────────────────────────────────────────────────
 API_KEY = os.getenv("VT_API_KEY") or os.getenv("VIRUSTOTAL_API_KEY", "")
-VT_AVAILABLE = bool(API_KEY)
+VT_AVAILABLE = bool(API_KEY) or os.getenv("SECLYST_PROVIDER_BROKER", "").lower() in {"1", "true", "yes", "on"}
 
 URL_SCAN_API_KEY = os.getenv("URL_SCAN_API_KEY") or os.getenv("URLSCAN_API_KEY", "")
 URLSCAN_AVAILABLE = bool(URL_SCAN_API_KEY)

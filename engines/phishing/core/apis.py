@@ -12,10 +12,16 @@ import urllib.parse
 
 import requests
 
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:
+    EngineControlClient = None
+
 from .config import VT_AVAILABLE, API_KEY, URL_SCAN_API_KEY, URLSCAN_AVAILABLE, SETTINGS, FREE_MAIL_PROVIDERS
 from .utils import timestamp_to_iso, unique_list
 
 logger = logging.getLogger(__name__)
+_provider_control = EngineControlClient("phishing") if EngineControlClient else None
 
 # ── In-memory caches for fast enrichment ──────────────────────────
 _VT_CACHE = {}
@@ -52,6 +58,35 @@ __all__ = [
 # ═══════════════════════════════════════════════════════════════════
 
 def vt_fetch(path):
+    if _provider_control and _provider_control.enabled:
+        broker = _provider_control.provider_request(
+            "virustotal",
+            "lookup",
+            "path",
+            path.lstrip("/"),
+            options={"path": path.lstrip("/")},
+        )
+        if broker is not None:
+            state = broker.get("state")
+            if state == "success":
+                return {
+                    "status": "ok",
+                    "http_status": broker.get("http_status") or 200,
+                    "json": broker.get("data"),
+                    "cached": bool(broker.get("cached")),
+                }
+            if state == "not_found":
+                return {"status": "not_found", "http_status": 404, "cached": bool(broker.get("cached"))}
+            if state == "waiting_rate_limit":
+                return {
+                    "status": "rate_limited",
+                    "http_status": 429,
+                    "retry_after": broker.get("retry_after"),
+                    "reason": "VirusTotal request is waiting for shared quota",
+                }
+            if state == "no_credential":
+                return {"status": "skipped", "reason": "VirusTotal credential is not configured"}
+            return {"status": "error", "http_status": broker.get("http_status"), "reason": broker.get("error") or state}
     if not VT_AVAILABLE:
         return {"status": "skipped", "reason": "VT_API_KEY is not set"}
 

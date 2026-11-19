@@ -49,11 +49,20 @@ Seclyst opens at `http://127.0.0.1:7000/`. One Ctrl+C stops the shell and all fi
 
 The shell is served by the FastAPI control plane. Durable job APIs are available under `/api/v1/jobs`; Malware and Phishing publish progress and final results there while retaining their original local endpoints. Set `SECLYST_DURABLE_JOBS=false` only as a migration rollback switch.
 
+VirusTotal lookups from Malware, Phishing, and IOC are coordinated by one server-side provider broker. Identical concurrent requests share one upstream call, successful and not-found responses carry cache provenance, and shared quota exhaustion produces an explicit wait instead of independent tool failures. Set `SECLYST_PROVIDER_BROKER=false` to restore standalone provider paths during rollback.
+
 Use `--no-browser` when automatic browser launch is not wanted. All listeners are restricted to loopback.
 
 ## Configuration
 
 Copy `.env.example` to `.env` to override internal ports or provide optional threat-intelligence credentials. The root `.env` is loaded server-side and inherited by copied engines; values are never returned to the browser or stored in localStorage.
+
+Provider credentials can instead be stored through the operating-system keyring:
+
+```powershell
+.venv\Scripts\python.exe -m seclyst credentials set virustotal
+.venv\Scripts\python.exe -m seclyst credentials status
+```
 
 External submission features remain disabled by default. Enabling a provider key does not automatically opt a sample into public submission.
 

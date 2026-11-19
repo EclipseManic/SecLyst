@@ -1,9 +1,15 @@
 import base64
+import asyncio
 from datetime import datetime, timezone
 
 from app.backend.adapters._http import MalformedResponse, failure, http_failure, malformed, not_configured, read_json
 from app.backend.adapters.base import NormalizedResult, RateLimitConfig, SourceAdapter, is_valid_api_key
 from app.backend.config import settings
+
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:
+    EngineControlClient = None
 
 _MAX_TAGS = 12
 
@@ -25,6 +31,7 @@ class VirusTotalAdapter(SourceAdapter):
 
     def __init__(self):
         self.api_key = settings.virustotal_api_key
+        self.provider_control = EngineControlClient("ioc") if EngineControlClient else None
         rpm = getattr(settings, "vt_rate_per_minute", None)
         if isinstance(rpm, int) and rpm > 0 and rpm != self.rate_limit.requests_per_minute:
             # Premium keys raise the per-minute quota; keep every other
@@ -32,7 +39,8 @@ class VirusTotalAdapter(SourceAdapter):
             self.rate_limit = self.rate_limit.model_copy(update={"requests_per_minute": rpm})
 
     async def lookup(self, ioc_value: str, ioc_type: str) -> NormalizedResult:
-        if not is_valid_api_key(self.api_key):
+        broker_enabled = bool(self.provider_control and self.provider_control.enabled)
+        if not broker_enabled and not is_valid_api_key(self.api_key):
             return not_configured(self.name, ioc_value, ioc_type)
 
         endpoint = self._endpoint(ioc_value, ioc_type)
@@ -42,26 +50,56 @@ class VirusTotalAdapter(SourceAdapter):
                 f"VirusTotal does not support {ioc_type} lookups", request_made=False,
             )
 
-        client = self._get_client()
-        resp = await client.get(
+        if broker_enabled:
+            broker = await asyncio.to_thread(
+                self.provider_control.provider_request,
+                "virustotal",
+                "lookup",
+                ioc_type,
+                ioc_value,
+            )
+            if broker is not None:
+                state = broker.get("state")
+                if state == "not_found":
+                    return failure(self.name, ioc_value, ioc_type, "not_found", [], "No matching record", http_status=404)
+                if state == "waiting_rate_limit":
+                    return failure(
+                        self.name, ioc_value, ioc_type, "rate_limited", ["rate_limited"],
+                        "VirusTotal request is waiting for shared quota",
+                        http_status=429, retry_after=broker.get("retry_after"),
+                    )
+                if state == "no_credential":
+                    return not_configured(self.name, ioc_value, ioc_type)
+                if state != "success":
+                    return failure(
+                        self.name, ioc_value, ioc_type, "error", [state or "provider_error"],
+                        broker.get("error") or "VirusTotal provider request failed",
+                        http_status=broker.get("http_status"),
+                    )
+                data = broker.get("data")
+                response_status = broker.get("http_status") or 200
+            else:
+                broker_enabled = False
+
+        if not broker_enabled:
+            client = self._get_client()
+            resp = await client.get(
                 endpoint,
                 headers={"x-apikey": self.api_key, "accept": "application/json"},
                 timeout=15,
             )
-
-        failed = http_failure(self.name, ioc_value, ioc_type, resp)
-        if failed is not None:
-            if resp.status_code == 429:
-                # VirusTotal answers 429 both for the per-minute limit and for
-                # an exhausted daily quota (QuotaExceededError).
-                failed.provider_summary = "VirusTotal quota reached (HTTP 429; public API allows 4/min, 500/day)"
-            return failed
-        try:
-            data = read_json(resp)
-        except MalformedResponse as exc:
-            return malformed(self.name, ioc_value, ioc_type, exc.reason, resp.status_code)
+            failed = http_failure(self.name, ioc_value, ioc_type, resp)
+            if failed is not None:
+                if resp.status_code == 429:
+                    failed.provider_summary = "VirusTotal quota reached (HTTP 429; public API allows 4/min, 500/day)"
+                return failed
+            try:
+                data = read_json(resp)
+            except MalformedResponse as exc:
+                return malformed(self.name, ioc_value, ioc_type, exc.reason, resp.status_code)
+            response_status = resp.status_code
         if not isinstance(data, dict) or not isinstance(data.get("data"), dict):
-            return malformed(self.name, ioc_value, ioc_type, http_status=resp.status_code)
+            return malformed(self.name, ioc_value, ioc_type, http_status=response_status)
         attrs = data["data"].get("attributes") or {}
         if not isinstance(attrs, dict):
             attrs = {}
@@ -217,7 +255,7 @@ class VirusTotalAdapter(SourceAdapter):
             last_seen=last_seen,
             samples=samples,
             raw_data=raw_data,
-            http_status=resp.status_code,
+            http_status=response_status,
         )
 
     def _endpoint(self, value: str, ioc_type: str) -> str:

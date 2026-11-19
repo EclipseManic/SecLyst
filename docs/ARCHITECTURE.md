@@ -6,6 +6,8 @@
 
 The control plane owns a separate SQLite WAL database at `runtime/seclyst.db`. Alembic migrations create the durable job queue and ordered event journal. Malware and Phishing register platform jobs through per-engine authenticated loopback channels, publish ordered progress, renew worker leases, and record durable completion or failure. Disabling `SECLYST_DURABLE_JOBS` returns both engines to their standalone in-memory lifecycle without changing their public APIs.
 
+The provider broker owns VirusTotal credentials, global rate policy, concurrency, circuit state, request audit rows, response caching, and single-flight deduplication across Malware, Phishing, and IOC. Copied engines receive no VirusTotal secret in broker mode. Their existing parsers still normalize provider payloads, so standalone mode remains compatible.
+
 The shell does not proxy or reinterpret tool requests. Each tool interface communicates with its own backend at the same loopback origin, preserving REST, server-sent event, WebSocket, download, and upload behavior without route rewriting.
 
 The shell mounts a tool frame only on first visit, then keeps that frame mounted and makes inactive frames inert and visually hidden. This preserves browser-side state during navigation without loading all five applications at startup. The retained frame is a presentation optimization only; backend execution must not depend on it.
