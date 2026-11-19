@@ -11,8 +11,10 @@ import { BrandShieldIcon, ShellIcon, ToolIcon } from './lib/icons';
 import { ToolDock } from './features/tools/ToolDock';
 import type { ToolBridgeMessage } from './features/tools/frame-protocol';
 import { activateToolSession, createToolSessions, updateToolSessionQuery } from './features/tools/tool-session-store';
-import { CommandCenterDashboard } from './pages/DashboardLive';
-import { FirstRunTourModal, LandingPage } from './pages/Landing';
+import { FirstRunTourModal } from './pages/Landing';
+import { Workbench } from './pages/Workbench';
+import { RunsPage } from './pages/Runs';
+import { DetectionLab } from './pages/DetectionLab';
 import { SettingsPage } from './pages/SettingsLive';
 // Each tool screen is that tool's own interface, hosted rather than redrawn.
 import { ToolFrame } from './ui/ToolFrame';
@@ -22,8 +24,9 @@ import { Kbd, Modal } from './ui/index';
 // is, the five tools, and the settings that apply to all of them. It is the
 // only way to change screen — there used to be five, none of them obvious.
 const WORKSPACE_NAV: { page: PageRouteId; label: string; icon: 'home' | 'dashboard'; hotkey: string }[] = [
-  { page: 'home', label: 'Overview', icon: 'home', hotkey: '0' },
-  { page: 'dashboard', label: 'Command Center', icon: 'dashboard', hotkey: 'D' }
+  { page: 'home', label: 'Workbench', icon: 'home', hotkey: '0' },
+  { page: 'dashboard', label: 'Runs', icon: 'dashboard', hotkey: 'R' },
+  { page: 'detections', label: 'Detection Lab', icon: 'dashboard', hotkey: 'L' }
 ];
 
 const KEEPALIVE_TOOL_FRAMES = import.meta.env.VITE_SECLYST_KEEPALIVE_FRAMES !== '0';
@@ -220,7 +223,7 @@ safeLocalSet('seclyst.reduceMotion', reduceMotion);
       let nextPage: PageRouteId | null = null;
       if (!raw) nextPage = 'home';
       else if (scope === 't' && id && id in TOOLS_REGISTRY) nextPage = id as ToolId;
-      else if (scope === 'home' || scope === 'dashboard' || scope === 'settings') {
+      else if (scope === 'home' || scope === 'dashboard' || scope === 'detections' || scope === 'settings') {
         nextPage = scope as PageRouteId;
       }
       if (!nextPage) return;
@@ -340,8 +343,9 @@ if (e.key === 'Escape') {
   // Command Palette searchable items
   const commandItems = useMemo(() => {
     const list = [
-      { category: 'Navigation', label: 'Overview', hotkey: '0', action: () => navigateTo('home') },
-      { category: 'Navigation', label: 'Command Center', hotkey: 'D', action: () => navigateTo('dashboard') },
+      { category: 'Navigation', label: 'Workbench', hotkey: '0', action: () => navigateTo('home') },
+      { category: 'Navigation', label: 'Runs', hotkey: 'R', action: () => navigateTo('dashboard') },
+      { category: 'Navigation', label: 'Detection Lab', hotkey: 'L', action: () => navigateTo('detections') },
       { category: 'Tools', label: 'IOC Lookup', hotkey: '1', action: () => navigateTo('ioc', 'lookup', 'lookup') },
       { category: 'Tools', label: 'Malware Analyzer', hotkey: '2', action: () => navigateTo('malware', 'investigation', 'dashboard') },
       { category: 'Tools', label: 'Phishing Detector', hotkey: '3', action: () => navigateTo('phishing', 'analysis', 'dashboard') },
@@ -635,35 +639,17 @@ const userInitials = userName
         >
           {page === 'home' && (
             <div className="sc-scroll">
-              <LandingPage
-                onNavigate={navigateTo}
-                onOpenSettings={() => navigateTo('settings')}
-onOpenTour={() => setTourOpen(true)}
-                activityFeed={activityFeed}
-                clipboardCount={iocClipboard.length}
-                onQuickIocLookup={(ioc) => {
-                  // IOC Lookup runs a lookup from its own deep link, so the
-                  // indicator arrives at a result instead of a blank form.
-                  setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(ioc)}`);
-                  navigateTo('ioc', 'lookup', 'lookup');
-                }}
-              />
+              <Workbench onNavigate={navigateTo} />
             </div>
           )}
 
           {page === 'dashboard' && (
             <div className="sc-scroll">
-              <CommandCenterDashboard
-                activityFeed={activityFeed}
-                backendStatus={backendStatus}
-                summary={platformSummary}
-                refreshing={platformRefreshing}
-                onRefresh={() => void refreshPlatform()}
-                onNavigate={navigateTo}
-                onAddToast={addToast}
-              />
+              <RunsPage />
             </div>
           )}
+
+          {page === 'detections' && <div className="sc-scroll"><DetectionLab /></div>}
 
           {KEEPALIVE_TOOL_FRAMES ? (
             <ToolDock

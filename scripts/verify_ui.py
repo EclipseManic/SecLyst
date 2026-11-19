@@ -73,14 +73,10 @@ def main() -> int:
         driver = webdriver.Chrome(options=options)
         wait = WebDriverWait(driver, 25)
 
-        for route, expected in (("#/", "Seclyst"), ("#/dashboard", "Command Center"), ("#/settings", "Settings")):
+        for route, expected in (("#/", "Workbench"), ("#/dashboard", "Analysis runs"), ("#/detections", "Detection Lab"), ("#/settings", "Settings")):
             driver.get(base_url + route)
             wait.until(lambda browser: expected in browser.find_element(By.TAG_NAME, "body").text)
             print(f"shell {route}: ok")
-
-        driver.get(base_url + "#/dashboard")
-        wait.until(lambda browser: "5 of 5" in browser.find_element(By.TAG_NAME, "body").text)
-        print("live dashboard: 5 of 5 engines online")
 
         for tool in TOOLS:
             driver.get(base_url + f"#/t/{tool}")
