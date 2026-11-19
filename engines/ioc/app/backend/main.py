@@ -11,13 +11,6 @@ from typing import Optional
 from urllib.parse import urlparse, urlsplit
 from uuid import uuid4
 
-try:
-    from seclyst.engines.client import EngineControlClient
-except ImportError:
-    EngineControlClient = None
-
-_seclyst_control = EngineControlClient("ioc") if EngineControlClient else None
-
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -82,6 +75,13 @@ from app.backend.rate_limiter import RateLimiter
 from app.backend.stix_export import build_stix_bundle, results_to_csv
 from app.backend.webhooks import add_webhook, list_webhooks, remove_webhook, shutdown_webhook_tasks
 from app.backend.logger import configure_logging, describe_exception, get_logger, _correlation_id
+
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:
+    EngineControlClient = None
+
+_seclyst_control = EngineControlClient("ioc") if EngineControlClient else None
 
 logger = get_logger("main")
 

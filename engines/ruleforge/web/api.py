@@ -39,13 +39,6 @@ from pathlib import Path
 from typing import Any, Callable, Final
 from urllib.parse import parse_qs, unquote, urlparse
 
-try:
-    from seclyst.engines.client import EngineControlClient
-except ImportError:
-    EngineControlClient = None
-
-_seclyst_control = EngineControlClient("ruleforge") if EngineControlClient else None
-
 from engine import dialects, synthesize
 from engine.codec import rule_from_dict, rule_to_dict
 from engine.evaluate import Budget, Caveat, EvaluationResult, Trace
@@ -54,6 +47,13 @@ from engine.pipeline import evaluate
 from engine.store import ORIGINS, RuleStore
 from engine.validate import validate
 from engine.values import ABSENT, UNDECIDED, Capability, Duration, Refusal, Seq
+
+try:
+    from seclyst.engines.client import EngineControlClient
+except ImportError:
+    EngineControlClient = None
+
+_seclyst_control = EngineControlClient("ruleforge") if EngineControlClient else None
 
 __all__ = ["Api", "RuleForgeHandler", "build_server", "serve", "MAX_BODY_BYTES"]
 
