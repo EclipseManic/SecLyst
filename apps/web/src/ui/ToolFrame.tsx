@@ -18,12 +18,17 @@ import React from 'react';
 import { TOOLS_REGISTRY } from '../data/workspace';
 import type { ToolId } from '../data/workspace';
 
-export const ToolFrame: React.FC<{
+export interface ToolFrameProps {
   tool: ToolId;
   endpoint?: string;
   status: 'online' | 'offline' | 'unknown';
   query?: string;
-}> = ({ tool, endpoint, status, query = '' }) => {
+}
+
+export const ToolFrame = React.forwardRef<HTMLIFrameElement, ToolFrameProps>(function ToolFrame(
+  { tool, endpoint, status, query = '' },
+  ref
+) {
   const definition = TOOLS_REGISTRY[tool];
   const src = endpoint ? new URL(query || '.', endpoint).toString() : '';
 
@@ -45,8 +50,10 @@ export const ToolFrame: React.FC<{
 
   return (
     <iframe
+      ref={ref}
       key={src}
       className="sc-frame"
+      data-tool={tool}
       src={src}
       title={`${definition.name}: original tool interface`}
       sandbox="allow-downloads allow-forms allow-modals allow-popups allow-same-origin allow-scripts"
@@ -54,4 +61,4 @@ export const ToolFrame: React.FC<{
       referrerPolicy="no-referrer"
     />
   );
-};
+});

@@ -84,7 +84,12 @@ def main() -> int:
 
         for tool in TOOLS:
             driver.get(base_url + f"#/t/{tool}")
-            frame = wait.until(lambda browser: browser.find_element(By.CSS_SELECTOR, "iframe.sc-frame"))
+            frame = wait.until(
+                lambda browser: browser.find_element(
+                    By.CSS_SELECTOR,
+                    f'.sc-tool-session.is-active[data-tool="{tool}"] iframe'
+                )
+            )
             driver.switch_to.frame(frame)
             wait.until(lambda browser: browser.execute_script("return document.readyState") == "complete")
             wait.until(lambda browser: len(browser.find_element(By.TAG_NAME, "body").text.strip()) > 40)
@@ -93,13 +98,50 @@ def main() -> int:
             print(f"{tool}: ok ({title})")
 
         driver.get(base_url + "#/t/ruleforge")
-        frame = wait.until(lambda browser: browser.find_element(By.CSS_SELECTOR, "iframe.sc-frame"))
+        frame = wait.until(
+            lambda browser: browser.find_element(
+                By.CSS_SELECTOR,
+                '.sc-tool-session.is-active[data-tool="ruleforge"] iframe'
+            )
+        )
         driver.switch_to.frame(frame)
-        driver.execute_script("window.location.hash = '#/studio/author/details'")
+        wait.until(lambda browser: browser.execute_script("return document.readyState") == "complete")
+        wait.until(lambda browser: len(browser.find_element(By.TAG_NAME, "body").text.strip()) > 40)
+        studio_links = driver.find_elements(By.CSS_SELECTOR, ".mainnav-link")
+        if len(studio_links) < 2:
+            raise RuntimeError("RuleForge Studio navigation is missing.")
+        studio_links[1].click()
         wait.until(lambda browser: browser.find_element(By.CSS_SELECTOR, ".topbar-right").is_displayed())
         wait.until(lambda browser: browser.find_element(By.CSS_SELECTOR, ".page h1").text == "Details")
         driver.switch_to.default_content()
         print("ruleforge studio: unchanged workflow chrome is visible")
+
+        driver.get(base_url + "#/t/malware")
+        malware_frame = wait.until(
+            lambda browser: browser.find_element(By.CSS_SELECTOR, '.sc-tool-session.is-active[data-tool="malware"] iframe')
+        )
+        driver.switch_to.frame(malware_frame)
+        driver.execute_script("window.__seclystRetentionMarker = 'retained'")
+        driver.switch_to.default_content()
+        driver.execute_script("window.location.hash = '#/t/phishing'")
+        wait.until(
+            lambda browser: browser.find_element(By.CSS_SELECTOR, '.sc-tool-session.is-active[data-tool="phishing"] iframe')
+        )
+        inactive_malware = driver.find_element(By.CSS_SELECTOR, '.sc-tool-session[data-tool="malware"]')
+        if inactive_malware.get_attribute("aria-hidden") != "true" or inactive_malware.get_attribute("inert") is None:
+            raise RuntimeError("Inactive Malware frame is not isolated from accessibility and pointer navigation.")
+        driver.execute_script("window.location.hash = '#/t/malware'")
+        retained_frame = wait.until(
+            lambda browser: browser.find_element(By.CSS_SELECTOR, '.sc-tool-session.is-active[data-tool="malware"] iframe')
+        )
+        if retained_frame.id != malware_frame.id:
+            raise RuntimeError("Malware iframe was recreated while navigating between tools.")
+        driver.switch_to.frame(retained_frame)
+        marker = driver.execute_script("return window.__seclystRetentionMarker")
+        driver.switch_to.default_content()
+        if marker != "retained":
+            raise RuntimeError("Malware iframe JavaScript context was lost during tool navigation.")
+        print("tool sessions: iframe identity, JavaScript state and accessibility isolation retained")
 
         severe = [
             entry for entry in driver.get_log("browser")

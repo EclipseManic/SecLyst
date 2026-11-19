@@ -30,6 +30,7 @@ export const SettingsPage: React.FC<{
   backendStatus: Record<ToolId, 'online' | 'offline' | 'unknown'>;
   toolEndpoints: Record<ToolId, string>;
   onTestBackend: (tool: ToolId) => void;
+  onUnloadToolSessions: () => void;
   onAddToast: (toast: Omit<ToastMessage, 'id'>) => void;
 }> = ({
   theme,
@@ -43,6 +44,7 @@ export const SettingsPage: React.FC<{
   backendStatus,
   toolEndpoints,
   onTestBackend,
+  onUnloadToolSessions,
   onAddToast
 }) => {
   const [category, setCategory] = useState<Category>('appearance');
@@ -170,8 +172,10 @@ export const SettingsPage: React.FC<{
             <div className="space-y-4">
               <h2 className="ui-h2">Shell data</h2>
               <p className="ui-body">The browser keeps only shell preferences, navigation state, and the shared IOC clipboard. Analysis history stays in each copied engine under <span className="sc-mono">runtime/</span>.</p>
+              <p className="ui-body">Visited tool interfaces remain mounted while Seclyst is open so their routes, forms, and live connections survive navigation. Unloading an interface does not cancel backend work.</p>
               <div className="flex flex-wrap gap-3">
                 <button type="button" className="ui-btn ui-btn--ghost" onClick={clearShellData}>Clear shell data</button>
+                <button type="button" className="ui-btn ui-btn--ghost" onClick={onUnloadToolSessions}>Unload tool interfaces</button>
                 <button
                   type="button"
                   className="ui-btn ui-btn--ghost"

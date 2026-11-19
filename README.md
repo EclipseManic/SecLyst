@@ -10,6 +10,8 @@ Seclyst is a local security analyst workbench that starts and presents five exis
 
 The tools are not redrawn. Each copied backend serves its original interface on an isolated loopback origin, and Seclyst hosts that interface edge-to-edge inside the workbench. The shell adds live health, recent-work aggregation, shared navigation, and an IOC clipboard without changing the tools' normal screens.
 
+Tool interfaces mount lazily on first use and remain alive while Seclyst is open. Switching tools therefore preserves each interface's route, form state, and live connection. Settings can explicitly unload retained interfaces to release browser memory; unloading never cancels backend work.
+
 ## Requirements
 
 - Python 3.11 or newer

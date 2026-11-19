@@ -6,6 +6,8 @@
 
 The shell does not proxy or reinterpret tool requests. Each tool interface communicates with its own backend at the same loopback origin, preserving REST, server-sent event, WebSocket, download, and upload behavior without route rewriting.
 
+The shell mounts a tool frame only on first visit, then keeps that frame mounted and makes inactive frames inert and visually hidden. This preserves browser-side state during navigation without loading all five applications at startup. The retained frame is a presentation optimization only; backend execution must not depend on it.
+
 ## Browser Boundary
 
 The Seclyst shell is served from port 7000. Tool interfaces are hosted in sandboxed cross-origin frames on ports 7101 through 7105.

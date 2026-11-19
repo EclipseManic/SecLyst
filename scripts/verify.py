@@ -44,6 +44,7 @@ def main() -> int:
     run([python, "-m", "pytest", "-q"], ROOT / "engines" / "ioc")
     run([python, "run.py", "verify"], ROOT / "engines" / "ruleforge")
 
+    run([npm, "test"], ROOT / "apps" / "web")
     run([npm, "run", "build"], ROOT / "apps" / "web")
     run([npm, "test"], ROOT / "engines" / "ioc" / "ui")
     run([npm, "run", "lint"], ROOT / "engines" / "ioc" / "ui")

@@ -907,6 +907,7 @@
 .sc-content {
   flex: 1 1 auto;
   min-height: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
 }
@@ -959,6 +960,32 @@
 
 /* a hosted tool fills the region: no card, no inset, no second scrollbar */
 .sc-content--frame { overflow: hidden; }
+.sc-tool-dock {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.sc-tool-dock.is-active {
+  visibility: visible;
+  pointer-events: auto;
+}
+.sc-tool-session {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  visibility: hidden;
+  pointer-events: none;
+}
+.sc-tool-session.is-active {
+  visibility: visible;
+  pointer-events: auto;
+}
 .sc-frame {
   flex: 1 1 auto;
   min-height: 0;

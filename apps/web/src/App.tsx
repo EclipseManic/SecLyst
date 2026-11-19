@@ -8,6 +8,9 @@ import type { ActivityItem, IOCClipboardItem, PageRouteId, ToastMessage, ToolDef
 import { apiClient, copyTextToClipboard, safeLocalGet, safeLocalSet, safeSessionGet, safeSessionSet, summaryToActivity } from './lib/api-client';
 import type { PlatformSummary } from './lib/api-client';
 import { BrandShieldIcon, ShellIcon, ToolIcon } from './lib/icons';
+import { ToolDock } from './features/tools/ToolDock';
+import type { ToolBridgeMessage } from './features/tools/frame-protocol';
+import { activateToolSession, createToolSessions, updateToolSessionQuery } from './features/tools/tool-session-store';
 import { CommandCenterDashboard } from './pages/DashboardLive';
 import { FirstRunTourModal, LandingPage } from './pages/Landing';
 import { SettingsPage } from './pages/SettingsLive';
@@ -22,6 +25,8 @@ const WORKSPACE_NAV: { page: PageRouteId; label: string; icon: 'home' | 'dashboa
   { page: 'home', label: 'Overview', icon: 'home', hotkey: '0' },
   { page: 'dashboard', label: 'Command Center', icon: 'dashboard', hotkey: 'D' }
 ];
+
+const KEEPALIVE_TOOL_FRAMES = import.meta.env.VITE_SECLYST_KEEPALIVE_FRAMES !== '0';
 
 function classifyIndicator(value: string): IOCClipboardItem['type'] {
   if (/^https?:\/\//i.test(value)) return 'url';
@@ -52,13 +57,14 @@ export default function App() {
   const [clipboardOpen, setClipboardOpen] = useState(false);
   const [clipboardDraft, setClipboardDraft] = useState('');
 
-// Per-Tool Active State
-  //
-  // `iocFrameQuery` is the IOC tool's own deep link, not shell state: it is
-  // either `?page=lookup&ioc=<indicator>` after a quick lookup or
-  // `?page=lookup&tool=batch` for the batch view. It is deliberately not
-  // persisted — reloading should not re-run a lookup you did earlier.
-  const [iocFrameQuery, setIocFrameQuery] = useState('');
+  // A visited tool remains mounted for this browser lifetime. The server owns
+  // analysis data; this map retains only presentation-level deep links.
+  const [toolSessions, setToolSessions] = useState(createToolSessions);
+  const [toolUnloadVersion, setToolUnloadVersion] = useState(0);
+
+  const setToolQuery = useCallback((tool: ToolId, query: string) => {
+    setToolSessions((sessions) => updateToolSessionQuery(sessions, tool, query));
+  }, []);
 
 // Shell overlays: the command palette, notifications, the account menu and
   // the tour. The tool-switcher dropdown that used to sit in the header is
@@ -189,9 +195,6 @@ safeLocalSet('seclyst.reduceMotion', reduceMotion);
     setCommandPaletteOpen(false);
     setNotificationsOpen(false);
     setUserMenuOpen(false);
-    // A tool deep link belongs to one visit. Leaving IOC Lookup drops it, so
-    // coming back opens the tool rather than replaying the last lookup.
-    if (targetPage !== 'ioc') setIocFrameQuery('');
   }, []);
 
   /* Read the hash back.
@@ -316,9 +319,23 @@ if (e.key === 'Escape') {
     return theme;
   }, [theme]);
 
-const currentToolDef = page in TOOLS_REGISTRY ? TOOLS_REGISTRY[page as ToolId] : null;
+  const activeTool: ToolId | null = page in TOOLS_REGISTRY ? page as ToolId : null;
+  const currentToolDef = activeTool ? TOOLS_REGISTRY[activeTool] : null;
   const isToolPage = page in TOOLS_REGISTRY;
   const unreadCount = activityFeed.filter((a) => a.unread).length;
+
+  useEffect(() => {
+    if (!activeTool) return;
+    setToolSessions((sessions) => activateToolSession(sessions, activeTool));
+  }, [activeTool]);
+
+  const handleToolBridgeMessage = useCallback((message: ToolBridgeMessage) => {
+    if (message.type !== 'route.changed') return;
+    const query = message.payload.query;
+    if (typeof query === 'string' && query.startsWith('?')) {
+      setToolQuery(message.tool, query);
+    }
+  }, [setToolQuery]);
 
   // Command Palette searchable items
   const commandItems = useMemo(() => {
@@ -614,8 +631,7 @@ const userInitials = userName
       {/* =================================================================== */}
       <div className="sc-main">
         <main
-          key={`${page}-${mainTab}-${subTab}`}
-className={`sc-content ${isToolPage ? 'sc-content--frame' : ''}`}
+          className={`sc-content ${isToolPage ? 'sc-content--frame' : ''}`}
         >
           {page === 'home' && (
             <div className="sc-scroll">
@@ -628,7 +644,7 @@ onOpenTour={() => setTourOpen(true)}
                 onQuickIocLookup={(ioc) => {
                   // IOC Lookup runs a lookup from its own deep link, so the
                   // indicator arrives at a result instead of a blank form.
-                  setIocFrameQuery(`?page=lookup&ioc=${encodeURIComponent(ioc)}`);
+                  setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(ioc)}`);
                   navigateTo('ioc', 'lookup', 'lookup');
                 }}
               />
@@ -649,17 +665,23 @@ onOpenTour={() => setTourOpen(true)}
             </div>
           )}
 
-          {/* Every tool screen is that tool's own interface, so the shell hosts
-              it rather than re-drawing it. The query is the tool's own deep
-              link, which is how the shell hands IOC Lookup an indicator. */}
-          {(page === 'malware' || page === 'ioc' || page === 'events' || page === 'phishing' || page === 'ruleforge') && (
-            <ToolFrame
-              tool={page}
-              endpoint={toolEndpoints[page]}
-              status={backendStatus[page]}
-              query={page === 'ioc' ? iocFrameQuery : ''}
+          {KEEPALIVE_TOOL_FRAMES ? (
+            <ToolDock
+              activeTool={activeTool}
+              endpoints={toolEndpoints}
+              status={backendStatus}
+              sessions={toolSessions}
+              unloadVersion={toolUnloadVersion}
+              onBridgeMessage={handleToolBridgeMessage}
             />
-          )}
+          ) : activeTool ? (
+            <ToolFrame
+              tool={activeTool}
+              endpoint={toolEndpoints[activeTool]}
+              status={backendStatus[activeTool]}
+              query={toolSessions[activeTool].query}
+            />
+          ) : null}
 
           {page === 'settings' && (
             <div className="sc-scroll">
@@ -681,6 +703,14 @@ onOpenTour={() => setTourOpen(true)}
                     type: res.status === 'online' ? 'success' : 'warning',
                    title: `${TOOLS_REGISTRY[tid].name}: ${res.status}`,
                     description: `Live supervisor check, latency ${res.latencyMs}ms${res.version ? `, Seclyst ${res.version}` : ''}`
+                  });
+                }}
+                onUnloadToolSessions={() => {
+                  setToolUnloadVersion((version) => version + 1);
+                  addToast({
+                    type: 'success',
+                    title: 'Tool interfaces unloaded',
+                    description: 'Inactive tool frames were released. Running backend work is unaffected.'
                   });
                 }}
                 onAddToast={addToast}
@@ -818,7 +848,7 @@ onOpenTour={() => setTourOpen(true)}
                     onClick={() => {
                       copyTextToClipboard(iocClipboard.map((c) => c.value).join('\n'));
                       setClipboardOpen(false);
-                      setIocFrameQuery('?page=lookup&tool=batch');
+                      setToolQuery('ioc', '?page=lookup&tool=batch');
                       navigateTo('ioc', 'lookup', 'batch');
                       addToast({ type: 'info', title: 'Opened IOC batch lookup', description: 'The indicators were copied, ready to paste into the original batch interface.' });
                     }}

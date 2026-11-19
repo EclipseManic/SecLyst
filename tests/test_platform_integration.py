@@ -86,13 +86,14 @@ def test_restricted_tools_allow_only_seclyst_frame_ancestors(platform) -> None:
 
 @pytest.mark.integration
 def test_shell_security_headers_and_spa_fallback(platform) -> None:
-    _supervisor, base_url = platform
+    supervisor, base_url = platform
     with urllib.request.urlopen(base_url + "/not-a-file", timeout=5) as response:
         body = response.read().decode("utf-8")
         assert response.status == 200
         assert "<title>Seclyst" in body
         assert response.headers["X-Frame-Options"] == "DENY"
-        assert "frame-src http://127.0.0.1:7101" in response.headers["Content-Security-Policy"]
+        malware_origin = supervisor.tools["malware"].url.rstrip("/")
+        assert f"frame-src {malware_origin}" in response.headers["Content-Security-Policy"]
 
 
 @pytest.mark.integration
