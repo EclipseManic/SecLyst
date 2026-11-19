@@ -1,0 +1,294 @@
+/* ==========================================================================
+   Theme — Cobalt
+   ==========================================================================
+   Cool near-white paper, blue-grey ink and hairlines, one electric cobalt
+   signal, and graphite for anything that is a machine value. Every colour and
+   every face in the product goes through a token declared here; nothing below
+   this file names a literal colour or a font.
+
+   Two modes, one system. Light is the default, and dark is derived from it by
+   recipe rather than by inversion: the paper steps lighter as surfaces rise,
+   the anchor hue never moves, and every contrast pairing is re-derived. The
+   theme attribute lives on the shell root (`data-theme`), and index.html sets
+   the same attribute on <html> so the first frame is already the right one.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- paper, ink and the neutrals between them --------------------- */
+  --color-paper: oklch(98.6% 0.005 250);
+  --color-paper-2: oklch(96.2% 0.008 252);
+  --color-paper-3: oklch(93% 0.011 252);
+  --color-ink: oklch(21% 0.028 262);
+  --color-ink-2: oklch(36% 0.022 260);
+  --color-muted: oklch(47% 0.018 258);
+  --color-rule: oklch(90% 0.009 252);
+  --color-rule-2: oklch(83% 0.012 252);
+
+  /* ---- the one accent ------------------------------------------------- */
+  --color-accent: oklch(52% 0.19 258);
+  --color-accent-deep: oklch(43% 0.2 262);
+  --color-accent-edge: oklch(39% 0.16 260);
+  --color-accent-2: oklch(76% 0.13 254);
+  --color-accent-wash: oklch(95% 0.028 256);
+  --color-accent-ink: oklch(98.6% 0.005 250);
+  --color-focus: oklch(52% 0.19 258);
+
+  /* ---- graphite: the dark material for machine values ----------------- */
+  --color-graphite: oklch(21% 0.024 262);
+  --color-graphite-2: oklch(26.5% 0.026 262);
+  --color-graphite-ink: oklch(93% 0.01 250);
+  --color-graphite-muted: oklch(69% 0.022 256);
+  --color-graphite-glyph-1: oklch(33% 0.03 262);
+  --color-graphite-glyph-2: oklch(41% 0.05 260);
+  --color-graphite-glyph-3: oklch(53% 0.1 258);
+
+  /* ---- the generated field -------------------------------------------- */
+  --color-glyph-1: oklch(89% 0.025 254);
+  --color-glyph-2: oklch(81% 0.045 255);
+  --color-glyph-3: oklch(70% 0.085 256);
+  --color-glyph-4: oklch(60% 0.13 257);
+
+  /* ---- verdicts: a signal set, each with its own tinted ground --------- */
+  --color-clean: oklch(46% 0.13 150);
+  --color-suspicious: oklch(50% 0.12 68);
+  --color-malicious: oklch(47% 0.19 22);
+  --color-info: oklch(46% 0.12 215);
+  --color-unknown: oklch(47% 0.018 258);
+  --color-error: oklch(47% 0.19 22);
+  --color-success: oklch(46% 0.13 150);
+  /* a tint is a colour mixed with the paper, never an alpha value: an alpha
+     is a definition of transparency, not a colour */
+  --color-clean-bg: color-mix(in oklab, var(--color-clean) 12%, var(--color-paper));
+  --color-suspicious-bg: color-mix(in oklab, var(--color-suspicious) 12%, var(--color-paper));
+  --color-malicious-bg: color-mix(in oklab, var(--color-malicious) 12%, var(--color-paper));
+  --color-info-bg: color-mix(in oklab, var(--color-info) 12%, var(--color-paper));
+  --color-unknown-bg: color-mix(in oklab, var(--color-unknown) 12%, var(--color-paper));
+
+  /* ---- controls: a keycap has a face and an edge ---------------------- */
+  --color-key-face: oklch(99.4% 0.003 250);
+  --color-key-edge: oklch(80% 0.016 254);
+  /* a field's edge is a functional boundary, so it is dark enough to clear
+     3:1 against the paper it sits on; the hairline rules are not */
+  --color-field-edge: oklch(58% 0.014 256);
+
+  /* ---- tool identity: one hue per tool, declared here and applied to a mark
+     only, so nothing else in the shell changes colour when you switch tools -- */
+  --hue-home: oklch(52% 0.19 258);
+  --hue-malware: oklch(50% 0.16 288);
+  --hue-ioc: oklch(52% 0.13 62);
+  --hue-events: oklch(50% 0.12 218);
+  --hue-phishing: oklch(50% 0.15 350);
+  --hue-ruleforge: oklch(49% 0.11 178);
+
+  /* ---- faces ---------------------------------------------------------- */
+  --font-display: "Familjen Grotesk", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-outlier: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mono: var(--font-outlier);
+
+  /* ---- the scale ------------------------------------------------------ */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.44rem;
+  --text-2xl: 1.728rem;
+  --text-3xl: 2.074rem;
+
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+
+  --radius-card: 8px;
+  --radius-input: 6px;
+  --radius-pill: 999px;
+  --cut: 8px;
+  --cut-l: 16px;
+  --cell-w: 8px;
+  --cell-h: 16px;
+
+  /* ---- motion --------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  --tracking-display: -0.028em;
+  --display-weight: 600;
+  --rule-hair: 1px;
+
+  /* ---- depth: one shadow for a card, one for what floats, one for a key */
+  --shadow-card: 0 1px 2px oklch(21% 0.028 262 / 0.06);
+  --shadow-pop: 0 8px 24px -8px oklch(21% 0.028 262 / 0.18), 0 2px 6px oklch(21% 0.028 262 / 0.08);
+  --shadow-modal: 0 24px 48px -16px oklch(21% 0.028 262 / 0.24), 0 2px 8px oklch(21% 0.028 262 / 0.08);
+  --shadow-key: 0 3px 0 0 var(--color-key-edge), 0 6px 8px -4px oklch(21% 0.028 262 / 0.28),
+    inset 0 1px 0 oklch(99.4% 0.003 250 / 0.9);
+  --shadow-key-accent: 0 3px 0 0 var(--color-accent-edge), 0 6px 8px -4px oklch(30% 0.12 260 / 0.45),
+    inset 0 1px 0 oklch(99.4% 0.003 250 / 0.22);
+  --shadow-key-press: inset 0 1px 2px oklch(21% 0.028 262 / 0.14);
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  /* ======================================================================
+     The project's own token names, mapped onto the system above.
+     The curated utility layer and every rule that was not part of the
+     redesign read these, so nothing had to be renamed to change the theme.
+     ====================================================================== */
+  --color-canvas: var(--color-paper);
+  --color-surface: var(--color-paper);
+  --color-surface-raised: var(--color-paper-2);
+  --color-surface-hover: var(--color-paper-3);
+  --color-border: var(--color-rule-2);
+  --color-border-subtle: var(--color-rule);
+  --color-border-focus: var(--color-focus);
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-ink-2);
+  --color-text-tertiary: var(--color-muted);
+  --color-text-inverse: var(--color-paper);
+  --accent-from: var(--color-accent);
+  --accent-to: var(--color-accent);
+  /* there is no glow token any more: elevation is a rule and a paper step */
+  --shadow-glow: var(--shadow-card);
+}
+
+/* --------------------------------------------------------------------------
+   Tool identity.
+   A tool is a hue and a tint, applied to an 8-30px mark. The six hues are
+   declared in the token block above and only applied here, so the theme owns
+   the palette and a tool owns a mark.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --tool-hue: var(--hue-home);
+  --tool-tint: color-mix(in oklab, var(--hue-home) 14%, var(--color-paper));
+}
+[data-tool="home"],
+[data-tool="dashboard"] {
+  --tool-hue: var(--hue-home);
+  --tool-tint: color-mix(in oklab, var(--hue-home) 14%, var(--color-paper));
+}
+[data-tool="malware"] {
+  --tool-hue: var(--hue-malware);
+  --tool-tint: color-mix(in oklab, var(--hue-malware) 14%, var(--color-paper));
+}
+[data-tool="ioc"] {
+  --tool-hue: var(--hue-ioc);
+  --tool-tint: color-mix(in oklab, var(--hue-ioc) 14%, var(--color-paper));
+}
+[data-tool="events"] {
+  --tool-hue: var(--hue-events);
+  --tool-tint: color-mix(in oklab, var(--hue-events) 14%, var(--color-paper));
+}
+[data-tool="phishing"] {
+  --tool-hue: var(--hue-phishing);
+  --tool-tint: color-mix(in oklab, var(--hue-phishing) 14%, var(--color-paper));
+}
+[data-tool="ruleforge"] {
+  --tool-hue: var(--hue-ruleforge);
+  --tool-tint: color-mix(in oklab, var(--hue-ruleforge) 14%, var(--color-paper));
+}
+
+/* --------------------------------------------------------------------------
+   Dark mode.
+   Derived, never inverted: the paper steps lighter as a surface rises (it
+   steps darker in light mode), the ink is anchor-tinted rather than white, the
+   accent loses chroma and gains lightness because a saturated light-mode
+   accent glares on a dark ground, and the anchor hue never moves. Shadows are
+   off on dark — elevation is the paper ladder and a hairline ring — so a key
+   keeps its edge as a rule rather than as a glow.
+   -------------------------------------------------------------------------- */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-paper: oklch(15% 0.012 252);
+  --color-paper-2: oklch(18% 0.014 252);
+  --color-paper-3: oklch(21.5% 0.016 252);
+  --color-ink: oklch(94% 0.008 250);
+  --color-ink-2: oklch(80% 0.014 254);
+  --color-muted: oklch(68% 0.016 256);
+  --color-rule: oklch(28% 0.012 254);
+  --color-rule-2: oklch(35% 0.014 254);
+
+  --color-accent: oklch(65% 0.16 258);
+  --color-accent-deep: oklch(78% 0.13 256);
+  --color-accent-edge: oklch(72% 0.14 258);
+  --color-accent-2: oklch(78% 0.12 254);
+  --color-accent-wash: oklch(26% 0.05 256);
+  --color-accent-ink: oklch(15% 0.012 252);
+  --color-focus: oklch(72% 0.15 258);
+
+  --color-graphite: oklch(22% 0.024 262);
+  --color-graphite-2: oklch(27% 0.026 262);
+  --color-graphite-ink: oklch(94% 0.008 250);
+  --color-graphite-muted: oklch(70% 0.022 256);
+  --color-graphite-glyph-1: oklch(34% 0.03 262);
+  --color-graphite-glyph-2: oklch(42% 0.05 260);
+  --color-graphite-glyph-3: oklch(54% 0.1 258);
+
+  --color-glyph-1: oklch(30% 0.022 254);
+  --color-glyph-2: oklch(36% 0.035 255);
+  --color-glyph-3: oklch(45% 0.06 256);
+  --color-glyph-4: oklch(55% 0.1 257);
+
+  --color-clean: oklch(72% 0.13 152);
+  --color-suspicious: oklch(76% 0.13 72);
+  --color-malicious: oklch(68% 0.17 22);
+  --color-info: oklch(72% 0.12 220);
+  --color-unknown: oklch(68% 0.016 256);
+  --color-error: oklch(68% 0.17 22);
+  --color-success: oklch(72% 0.13 152);
+  --color-clean-bg: color-mix(in oklab, var(--color-clean) 16%, var(--color-paper));
+  --color-suspicious-bg: color-mix(in oklab, var(--color-suspicious) 16%, var(--color-paper));
+  --color-malicious-bg: color-mix(in oklab, var(--color-malicious) 16%, var(--color-paper));
+  --color-info-bg: color-mix(in oklab, var(--color-info) 16%, var(--color-paper));
+  --color-unknown-bg: color-mix(in oklab, var(--color-unknown) 16%, var(--color-paper));
+
+  --color-key-face: oklch(22% 0.014 254);
+  --color-key-edge: oklch(12% 0.012 252);
+  --color-field-edge: oklch(62% 0.012 254);
+
+  /* the hues gain lightness and lose chroma; the anchor hue never moves */
+  --hue-home: oklch(65% 0.16 258);
+  --hue-malware: oklch(68% 0.15 288);
+  --hue-ioc: oklch(74% 0.13 70);
+  --hue-events: oklch(70% 0.12 218);
+  --hue-phishing: oklch(70% 0.15 350);
+  --hue-ruleforge: oklch(70% 0.11 178);
+
+  --shadow-card: none;
+  --shadow-pop: 0 12px 32px -12px oklch(6% 0.012 252 / 0.7);
+  --shadow-modal: 0 28px 56px -16px oklch(6% 0.012 252 / 0.8);
+  --shadow-key: 0 2px 0 0 var(--color-rule), inset 0 0 0 1px var(--color-rule-2);
+  --shadow-key-accent: 0 2px 0 0 var(--color-accent-edge), inset 0 0 0 1px var(--color-accent-edge);
+  --shadow-key-press: inset 0 1px 3px oklch(6% 0.012 252 / 0.6);
+
+  /* light-on-dark text reads optically heavier, so body weight steps down */
+  --display-weight: 550;
+}
+
+/* the OS preference, for the one moment before the shell has read its own
+   stored choice: the attribute always wins, this only covers the gap */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --color-paper: oklch(15% 0.012 252);
+    --color-ink: oklch(94% 0.008 250);
+  }
+}

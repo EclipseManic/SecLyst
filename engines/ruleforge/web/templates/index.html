@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!--
+  RuleForge: a local detection-rule workbench.
+
+  This file is the shell and nothing else. Every screen is built in
+  web/static/js/screens/, every colour is declared in web/static/css/tokens.css,
+  and the rule being edited lives in one state object (core/state.js). There is
+  no build step and no dependency: the server serves these files off disk,
+  which is what lets the tool run inside a locked-down SOC.
+
+  Two views, one bar: Home is the overview you read, Studio is the work. The
+  Studio's tools are the second row; Author's six steps live inside the page,
+  because an ordered workflow is not a menu.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RuleForge</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/components.css">
+<link rel="stylesheet" href="/static/css/screens.css">
+</head>
+<body>
+
+<div class="app" data-view="home">
+
+  <header class="topbar">
+    <a class="brand" href="#/" title="RuleForge home">
+      <span class="brand-mark" aria-hidden="true"></span>RuleForge
+    </a>
+
+    <nav class="mainnav" id="mainnav" aria-label="Views">
+      <a class="mainnav-link" href="#/" data-nav="home">Home</a>
+      <a class="mainnav-link" href="#/studio/author/details" data-nav="studio">Studio</a>
+    </nav>
+
+    <div class="topbar-right">
+      <span class="envbadge" title="Nothing leaves this machine">
+        <span class="dot dot--ok" aria-hidden="true"></span>Local only
+      </span>
+      <label class="target-pick">
+        <span class="target-label">Target</span>
+        <select id="target" aria-label="Target language"></select>
+      </label>
+      <a class="topbar-tab" id="health-link" href="#/studio/health" title="Is anything broken?">Health</a>
+      <button class="btn primary sm" id="save-version" type="button">Save version</button>
+    </div>
+  </header>
+
+  <nav class="subnav" id="subnav" aria-label="Studio" hidden></nav>
+
+  <main class="stage">
+    <div class="authorbar" id="authorbar" hidden>
+      <div class="rulebar" id="rulebar" aria-label="The rule being edited"></div>
+      <div class="steps" id="steps" aria-label="Authoring steps"></div>
+    </div>
+    <div class="stage-scroll" id="screen"></div>
+  </main>
+
+  <section class="problems is-collapsed" id="problems" data-empty="true"
+           aria-label="Problems" aria-live="polite"></section>
+
+  <footer class="statusbar" id="statusbar" aria-label="Status"></footer>
+
+</div>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<div class="inspector" id="inspector" hidden></div>
+
+<noscript>
+  <p style="padding: 24px; font-family: sans-serif">
+    RuleForge needs JavaScript. Nothing is hidden from you, but every screen is
+    built in the browser from one state object, so there is no static version.
+  </p>
+</noscript>
+
+<script type="module" src="/static/js/main.js"></script>
+</body>
+</html>

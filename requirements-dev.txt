@@ -1,0 +1,4 @@
+-r requirements.txt
+-r engines/ioc/requirements-dev.txt
+selenium>=4.38,<5
+ruff==0.15.7

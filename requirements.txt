@@ -1,0 +1,4 @@
+-r engines/malware/requirements.txt
+-r engines/events/requirements.txt
+-r engines/phishing/requirements.txt
+-r engines/ioc/requirements.txt

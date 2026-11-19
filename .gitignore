@@ -1,0 +1,56 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# Runtime data
+runtime/
+uploads/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.log
+
+# Local tooling and editor state
+.kilo/
+.hallmark/
+.oxcode-memory/
+.vscode/
+.idea/
+.cache/
+Thumbs.db
+.DS_Store
+
+# Scratch and session material
+session*.md
+issues.html
+issues.txt
+probe_*.py
+show_rows.py
+extract_issues.py
+
+# The parent Combined Project ignores its separate root RuleForge checkout.
+# Keep Seclyst's copied engine visible if this directory is committed there.
+!engines/ruleforge/
+!engines/ruleforge/**
