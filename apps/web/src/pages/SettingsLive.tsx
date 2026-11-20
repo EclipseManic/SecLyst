@@ -108,14 +108,7 @@ export const SettingsPage: React.FC<{
           {category === 'appearance' && (
             <div className="space-y-5">
               <h2 className="ui-h2">Appearance</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {(['dark', 'light', 'system'] as const).map((value) => (
-                  <button key={value} type="button" className="ui-choice" aria-pressed={theme === value} onClick={() => setTheme(value)}>
-                    <span className="ui-h3">{value === 'system' ? 'System' : value === 'dark' ? 'Dark' : 'Light'}</span>
-                    <span className="ui-meta mt-1 block">{value === 'system' ? 'Follow the operating system' : `${value} shell surfaces`}</span>
-                  </button>
-                ))}
-              </div>
+              <div className="ui-well ui-card-pad"><span className="ui-strong block">Permanent dark workspace</span><span className="ui-meta block mt-1">SecLyst uses one consistent dark visual system across every session.</span></div>
               <div className="space-y-2">
                 <span className="ui-meta block">Shell font size</span>
                 <div className="ui-tabs">

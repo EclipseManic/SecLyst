@@ -12,6 +12,7 @@ import { ToolDock } from './features/tools/ToolDock';
 import type { ToolBridgeMessage } from './features/tools/frame-protocol';
 import { activateToolSession, createToolSessions, updateToolSessionQuery } from './features/tools/tool-session-store';
 import { FirstRunTourModal, LandingPage } from './pages/Landing';
+import { ActivityPage } from './pages/Activity';
 import { SettingsPage } from './pages/SettingsLive';
 // Each tool screen is that tool's own interface, hosted rather than redrawn.
 import { ToolFrame } from './ui/ToolFrame';
@@ -21,7 +22,8 @@ import { Kbd, Modal } from './ui/index';
 // is, the five tools, and the settings that apply to all of them. It is the
 // only way to change screen — there used to be five, none of them obvious.
 const WORKSPACE_NAV: { page: PageRouteId; label: string; icon: 'home' | 'dashboard'; hotkey: string }[] = [
-  { page: 'home', label: 'Dashboard', icon: 'home', hotkey: '' }
+  { page: 'home', label: 'Dashboard', icon: 'home', hotkey: '' },
+  { page: 'activity', label: 'Activity', icon: 'dashboard', hotkey: '' }
 ];
 
 const KEEPALIVE_TOOL_FRAMES = import.meta.env.VITE_SECLYST_KEEPALIVE_FRAMES !== '0';
@@ -68,6 +70,7 @@ export default function App() {
   // the tour. The tool-switcher dropdown that used to sit in the header is
   // gone; the sidebar replaced it.
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => safeLocalGet('seclyst.sidebarCollapsed', false));
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => safeLocalGet('seclyst.sidebarWidth', 248));
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -75,7 +78,7 @@ export default function App() {
   const [tourOpen, setTourOpen] = useState(false);
 
   // Shell preferences
-  const [theme, setTheme] = useState<'dark' | 'light' | 'system'>(() => safeLocalGet('seclyst.theme', 'light'));
+  const theme = 'dark' as const;
   const [fontScale, setFontScale] = useState<number>(() => safeLocalGet('seclyst.fontScale', 100));
   const [compactMode, setCompactMode] = useState<boolean>(() => safeLocalGet('seclyst.compact', false));
   const [reduceMotion, setReduceMotion] = useState<boolean>(() => safeLocalGet('seclyst.reduceMotion', false));
@@ -162,12 +165,12 @@ safeSessionSet('seclyst.clipboard', iocClipboard);
 
   // Persist preferences to localStorage
   useEffect(() => {
-    safeLocalSet('seclyst.theme', theme);
     safeLocalSet('seclyst.fontScale', fontScale);
     safeLocalSet('seclyst.compact', compactMode);
 safeLocalSet('seclyst.reduceMotion', reduceMotion);
     safeLocalSet('seclyst.sidebarCollapsed', sidebarCollapsed);
-  }, [theme, fontScale, compactMode, reduceMotion, sidebarCollapsed]);
+    safeLocalSet('seclyst.sidebarWidth', sidebarWidth);
+  }, [fontScale, compactMode, reduceMotion, sidebarCollapsed, sidebarWidth]);
 
   // Sync hash URL & document attributes
   const navigateTo = useCallback((targetPage: PageRouteId, targetMain?: string, targetSub?: string) => {
@@ -218,7 +221,7 @@ safeLocalSet('seclyst.reduceMotion', reduceMotion);
       let nextPage: PageRouteId | null = null;
       if (!raw) nextPage = 'home';
       else if (scope === 't' && id && id in TOOLS_REGISTRY) nextPage = id as ToolId;
-      else if (scope === 'home' || scope === 'settings') {
+      else if (scope === 'home' || scope === 'activity' || scope === 'settings') {
         nextPage = scope as PageRouteId;
       } else if (scope === 'dashboard' || scope === 'detections') {
         nextPage = 'home';
@@ -301,16 +304,7 @@ if (e.key === 'Escape') {
 // its own interface now and cannot reach into the shell. Pinning is done in
 // the clipboard panel itself.
 
-  const resolvedTheme = useMemo(() => {
-    if (theme === 'system') {
-      try {
-        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      } catch {
-        return 'dark';
-      }
-    }
-    return theme;
-  }, [theme]);
+  const resolvedTheme = 'dark' as const;
 
   const activeTool: ToolId | null = page in TOOLS_REGISTRY ? page as ToolId : null;
   const currentToolDef = activeTool ? TOOLS_REGISTRY[activeTool] : null;
@@ -346,13 +340,13 @@ if (e.key === 'Escape') {
       { category: 'Actions', label: 'Run a malware scan', hotkey: '', action: () => navigateTo('malware', 'investigation', 'dashboard') },
       { category: 'Actions', label: 'Upload an EVTX log', hotkey: '', action: () => navigateTo('events', 'investigation', 'events') },
       { category: 'Actions', label: 'Analyze a phishing email', hotkey: '', action: () => navigateTo('phishing', 'analysis', 'dashboard') },
-      { category: 'Settings', label: 'Toggle light / dark theme', hotkey: '', action: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark') },
+      { category: 'Navigation', label: 'Activity', hotkey: '', action: () => navigateTo('activity') },
       { category: 'Settings', label: 'Backend connections', hotkey: '', action: () => navigateTo('settings') },
       { category: 'Settings', label: 'How this works', hotkey: '', action: () => setTourOpen(true) }
     ];
     if (!commandQuery.trim()) return list;
     return list.filter((i) => `${i.category} ${i.label}`.toLowerCase().includes(commandQuery.toLowerCase()));
-  }, [commandQuery, navigateTo, resolvedTheme]);
+  }, [commandQuery, navigateTo]);
 
 const userInitials = userName
     .split(' ')
@@ -391,6 +385,7 @@ const userInitials = userName
       <aside
         className="sc-rail"
         data-collapsed={sidebarCollapsed ? 'true' : 'false'}
+        style={sidebarCollapsed ? undefined : { width: sidebarWidth }}
         aria-label="Workspace navigation"
       >
         <div className="sc-rail-head">
@@ -466,11 +461,7 @@ const userInitials = userName
             <button
               type="button"
               className="sc-nav-item"
-              aria-expanded={notificationsOpen}
-              onClick={() => {
-                setNotificationsOpen(!notificationsOpen);
-                setUserMenuOpen(false);
-              }}
+              onClick={() => navigateTo('activity')}
               title="Activity"
             >
               <span className="sc-nav-icon" aria-hidden="true">
@@ -598,15 +589,6 @@ const userInitials = userName
             <button
               type="button"
               className="sc-icon-btn"
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            >
-              <ShellIcon name={resolvedTheme === 'dark' ? 'sun' : 'moon'} size={17} />
-            </button>
-            <button
-              type="button"
-              className="sc-icon-btn"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -616,6 +598,12 @@ const userInitials = userName
             </button>
           </div>
         </div>
+        {!sidebarCollapsed && <div className="sc-rail-resize" role="separator" aria-orientation="vertical" onPointerDown={(event) => {
+          const startX = event.clientX; const startWidth = sidebarWidth;
+          const move = (moveEvent: PointerEvent) => setSidebarWidth(Math.max(216, Math.min(380, startWidth + moveEvent.clientX - startX)));
+          const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); };
+          window.addEventListener('pointermove', move); window.addEventListener('pointerup', stop);
+        }} />}
       </aside>
 
       {/* =================================================================== */}
@@ -641,6 +629,7 @@ const userInitials = userName
               />
             </div>
           )}
+          {page === 'activity' && <div className="sc-scroll"><ActivityPage items={activityFeed} /></div>}
 
           {KEEPALIVE_TOOL_FRAMES ? (
             <ToolDock
@@ -664,7 +653,7 @@ const userInitials = userName
             <div className="sc-scroll">
               <SettingsPage
                 theme={theme}
-                setTheme={setTheme}
+                setTheme={() => undefined}
                 fontScale={fontScale}
                 setFontScale={setFontScale}
                 compactMode={compactMode}

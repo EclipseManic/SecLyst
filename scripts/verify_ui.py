@@ -74,7 +74,7 @@ def main() -> int:
         driver = webdriver.Chrome(options=options)
         wait = WebDriverWait(driver, 25)
 
-        for route, expected in (("#/", "What do you want to analyze?"), ("#/settings", "Settings")):
+        for route, expected in (("#/", "What do you want to analyze?"), ("#/activity", "Your analysis timeline"), ("#/settings", "Settings")):
             driver.get(base_url + route)
             wait.until(lambda browser: expected in browser.find_element(By.TAG_NAME, "body").text)
             print(f"shell {route}: ok")

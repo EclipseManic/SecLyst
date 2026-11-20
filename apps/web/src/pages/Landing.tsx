@@ -373,6 +373,7 @@ export const LandingPage: React.FC<{
   // Counted, not written down: these figures come from the registry and from
   // session state, so they cannot drift away from the product.
   const tools = TOOL_ORDER.map((id) => TOOLS_REGISTRY[id]);
+  const analysisTools = tools.filter((tool) => tool.id !== 'ruleforge');
   const capabilityCount = tools.reduce((total, tool) => total + tool.capabilities.length, 0);
   const viewCount = tools.reduce((total, tool) => total + tool.subTabs.length, 0);
   const feed = activityFeed.slice(0, 5);
@@ -722,8 +723,8 @@ export const LandingPage: React.FC<{
             </label>
           </div>
           {selectedFiles.length > 0 && <p className="ui-meta">{selectedFiles.length} item{selectedFiles.length === 1 ? '' : 's'} selected</p>}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
-            {tools.map((tool) => <button key={tool.id} type="button" className="ui-choice" aria-pressed={selectedTool === tool.id} onClick={() => setSelectedTool(tool.id)}><span className="ui-strong block">{tool.shortName}</span><span className="ui-meta block mt-1">{tool.tagline}</span></button>)}
+          <div className="premium-tool-choices">
+            {analysisTools.map((tool) => <button key={tool.id} type="button" className="ui-choice premium-tool-choice" aria-pressed={selectedTool === tool.id} onClick={() => setSelectedTool(tool.id)}><span className="ui-strong block">{tool.shortName}</span><span className="ui-meta block mt-1">{tool.tagline}</span></button>)}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="ui-btn ui-btn--primary" disabled={!objective.trim()} onClick={() => {
@@ -732,6 +733,7 @@ export const LandingPage: React.FC<{
             }}>Open {TOOLS_REGISTRY[selectedTool].shortName} and start</button>
             <span className="ui-meta">Selected files remain local. The specialist tool opens with its original workflow.</span>
           </div>
+          <div className="premium-ruleforge-link"><span><strong>Working with an existing rule?</strong> Import, translate, tune, or validate it in RuleForge.</span><button className="ui-btn ui-btn--ghost" type="button" onClick={() => onNavigate('ruleforge')}>Open RuleForge</button></div>
         </div>
       </section>
 
