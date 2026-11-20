@@ -79,6 +79,12 @@ def main() -> int:
             wait.until(lambda browser: expected in browser.find_element(By.TAG_NAME, "body").text)
             print(f"shell {route}: ok")
 
+        driver.get(base_url + "#/")
+        dashboard_order = driver.execute_script("const consoleSection=document.querySelector('.premium-console'); const ruleforge=document.querySelector('.premium-ruleforge'); return Boolean(consoleSection && ruleforge && (ruleforge.compareDocumentPosition(consoleSection) & Node.DOCUMENT_POSITION_FOLLOWING));")
+        if not dashboard_order:
+            raise RuntimeError("Dashboard analysis console is not the final section.")
+        print("dashboard hierarchy: analysis console is the final section")
+
         for tool in TOOLS:
             driver.get(base_url + f"#/t/{tool}")
             frame = wait.until(

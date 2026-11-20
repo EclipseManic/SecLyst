@@ -36,15 +36,6 @@ export function Dashboard({
       <div className="premium-live"><i/><span>{online} of 5 engines online</span></div>
     </header>
 
-    <section className="premium-console" aria-labelledby="premium-console-title">
-      <div className="premium-console-copy"><span className="premium-section-label">New analysis</span><h2 id="premium-console-title">What are you working on?</h2><p>Describe the outcome you need, attach the evidence, then choose the right specialist.</p></div>
-      <textarea className="premium-objective" value={objective} onChange={(event)=>setObjective(event.target.value)} placeholder="Example: Verify whether this email is malicious, inspect its attachments, and enrich every extracted indicator." rows={4}/>
-      <div className="premium-evidence-grid"><label><strong>Add files</strong><span>Samples, emails, documents, or EVTX logs</span><input type="file" multiple onChange={(event)=>setFiles(Array.from(event.target.files||[]))}/></label><label><strong>Add a folder</strong><span>A related collection of local evidence</span><input type="file" multiple {...({webkitdirectory:''} as React.InputHTMLAttributes<HTMLInputElement>)} onChange={(event)=>setFiles(Array.from(event.target.files||[]))}/></label></div>
-      {files.length > 0 && <div className="premium-file-count">{files.length} local item{files.length===1?'':'s'} selected</div>}
-      <div className="premium-tool-selector">{ANALYSIS_TOOLS.map((id)=>{const tool=TOOLS_REGISTRY[id];return <button key={id} type="button" data-tool={id} aria-pressed={selectedTool===id} onClick={()=>setSelectedTool(id)}><ToolIcon tool={id} size={18}/><span><strong>{tool.shortName}</strong><small>{tool.tagline}</small></span></button>;})}</div>
-      <div className="premium-console-footer"><button className="premium-primary" type="button" disabled={!objective.trim()} onClick={start}>Open {TOOLS_REGISTRY[selectedTool].shortName}</button><span>Evidence stays on this machine and opens in the original specialist workflow.</span></div>
-    </section>
-
     <section className="premium-snapshot"><div><span>Engine availability</span><strong>{online}/5</strong><small>Measured live</small></div><div><span>Active work</span><strong>{running}</strong><small>Durable platform jobs</small></div><div><span>Recent records</span><strong>{activityCount}</strong><small>Across specialist engines</small></div><div><span>Workspace mode</span><strong>Local</strong><small>Loopback isolated</small></div></section>
 
     <section className="premium-section"><div className="premium-section-head"><div><span className="premium-section-label">Specialist suite</span><h2>Five focused tools. One consistent workspace.</h2></div></div><div className="premium-suite">{(Object.values(TOOLS_REGISTRY) as ToolDefinition[]).map((tool)=><button key={tool.id} type="button" data-tool={tool.id} onClick={()=>onOpenTool(tool.id)}><span className="premium-suite-icon"><ToolIcon tool={tool.id} size={20}/></span><span><strong>{tool.name}</strong><small>{tool.description}</small></span><b>Open</b></button>)}</div></section>
@@ -52,5 +43,14 @@ export function Dashboard({
     <section className="premium-guide"><div><span>01</span><h3>State the objective</h3><p>Start with the decision you need to make, not a blank tool screen.</p></div><div><span>02</span><h3>Choose the evidence</h3><p>Keep files and folders local while routing work to the right specialist.</p></div><div><span>03</span><h3>Follow durable activity</h3><p>Switch tools freely and return to work without losing browser-side context.</p></div></section>
 
     <section className="premium-ruleforge"><div><span className="premium-section-label">Detection engineering</span><h2>Already have a rule or detection idea?</h2><p>Use RuleForge to import, translate, validate, tune, and explain detection logic across supported SIEM dialects.</p></div><button type="button" onClick={()=>onOpenTool('ruleforge')}>Open RuleForge</button></section>
+
+    <section className="premium-console" aria-labelledby="premium-console-title">
+      <div className="premium-console-copy"><span className="premium-section-label">Start here</span><h2 id="premium-console-title">What do you want to analyze?</h2><p>Describe the outcome you need, attach the evidence, then choose the right specialist.</p></div>
+      <textarea className="premium-objective" value={objective} onChange={(event)=>setObjective(event.target.value)} placeholder="Example: Verify whether this email is malicious, inspect its attachments, and enrich every extracted indicator." rows={4}/>
+      <div className="premium-evidence-grid"><label><strong>Add files</strong><span>Samples, emails, documents, or EVTX logs</span><input type="file" multiple onChange={(event)=>setFiles(Array.from(event.target.files||[]))}/></label><label><strong>Add a folder</strong><span>A related collection of local evidence</span><input type="file" multiple {...({webkitdirectory:''} as React.InputHTMLAttributes<HTMLInputElement>)} onChange={(event)=>setFiles(Array.from(event.target.files||[]))}/></label></div>
+      {files.length > 0 && <div className="premium-file-count">{files.length} local item{files.length===1?'':'s'} selected</div>}
+      <div className="premium-tool-selector">{ANALYSIS_TOOLS.map((id)=>{const tool=TOOLS_REGISTRY[id];return <button key={id} type="button" data-tool={id} aria-pressed={selectedTool===id} onClick={()=>setSelectedTool(id)}><ToolIcon tool={id} size={18}/><span><strong>{tool.shortName}</strong><small>{tool.tagline}</small></span></button>;})}</div>
+      <div className="premium-console-footer"><button className="premium-primary" type="button" disabled={!objective.trim()} onClick={start}>Open {TOOLS_REGISTRY[selectedTool].shortName}</button><span>Evidence stays on this machine and opens in the original specialist workflow.</span></div>
+    </section>
   </div>;
 }
