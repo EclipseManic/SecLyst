@@ -26,6 +26,11 @@ def test_tool_settings_are_central_and_persistent(tmp_path):
     saved = api.put("/api/v1/settings/tools/events", json={"values": {"page_limit": 500}})
     assert saved.status_code == 200 and saved.json()["restart_required"] is True
     settings = api.get("/api/v1/settings").json()
-    assert settings["tools"]["events"]["page_limit"] == 500
+    assert settings["tools"]["events"]["values"]["page_limit"] == 500
+    assert settings["tools"]["events"]["schema"]["page_limit"]["env"] == "EVTX_VIEWER_PAGE_LIMIT"
     assert "virustotal" in settings["providers"]
+    assert settings["providers"]["virustotal"]["category"] == "shared"
+    assert api.put("/api/v1/settings/tools/events", json={"values": {"page_limit": 999999}}).status_code == 422
+    reset = api.delete("/api/v1/settings/tools/events")
+    assert reset.status_code == 200 and reset.json()["values"]["page_limit"] == 200
     db.dispose()

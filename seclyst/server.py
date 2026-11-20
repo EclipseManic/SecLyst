@@ -171,6 +171,16 @@ class Supervisor:
         data_dir = (RUNTIME / tool.spec.id).resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
         from .providers.credentials import CredentialStore, PROVIDER_ENV_KEYS
+        from .api.settings import tool_environment
+
+        settings_data = {}
+        settings_path = RUNTIME / "settings.json"
+        if settings_path.is_file():
+            try:
+                settings_data = json.loads(settings_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                settings_data = {}
+        env.update(tool_environment(tool.spec.id, settings_data.get("tools", {}).get(tool.spec.id, {})))
 
         provider_access = {
             "malware": {"virustotal", "hybrid_analysis", "filescan"},
@@ -181,7 +191,8 @@ class Supervisor:
         }
         credential_store = CredentialStore()
         for provider in provider_access[tool.spec.id]:
-            credential = credential_store.get(provider)
+            alias = settings_data.get("api_env_aliases", {}).get(provider)
+            credential = credential_store.get(provider, extra_env_names=(alias,) if alias else ())
             if credential:
                 env[PROVIDER_ENV_KEYS[provider][0]] = credential
 
@@ -483,6 +494,7 @@ def main(argv: list[str] | None = None) -> int:
     from .jobs.service import JobService
 
     settings = Settings.from_environment()
+    os.environ["SECLYST_SETTINGS_PATH"] = str(settings.runtime_dir / "settings.json")
     upgrade_database(settings.database_path)
     database = Database(settings.database_path)
     job_service = JobService(database, lease_seconds=settings.job_lease_seconds)

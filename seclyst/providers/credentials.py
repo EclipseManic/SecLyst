@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import json
+from pathlib import Path
 
 try:
     import keyring
@@ -30,7 +32,10 @@ PROVIDER_ENV_KEYS = {
 class CredentialStore:
     """Server-side credential lookup; OS keyring support can replace this backend."""
 
-    def get(self, provider: str) -> str:
+    def get(self, provider: str, *, extra_env_names: tuple[str, ...] = ()) -> str:
+        configured_alias = self._configured_alias(provider)
+        if configured_alias:
+            extra_env_names = (configured_alias, *extra_env_names)
         if keyring is not None:
             try:
                 value = keyring.get_password("SecLyst", provider)
@@ -38,14 +43,41 @@ class CredentialStore:
                     return value.strip()
             except Exception:
                 pass
-        for name in PROVIDER_ENV_KEYS.get(provider, ()):
+        for name in (*extra_env_names, *PROVIDER_ENV_KEYS.get(provider, ())):
             value = os.getenv(name, "").strip()
             if value:
                 return value
         return ""
 
-    def configured(self, provider: str) -> bool:
-        return bool(self.get(provider))
+    def configured(self, provider: str, *, extra_env_names: tuple[str, ...] = ()) -> bool:
+        return bool(self.get(provider, extra_env_names=extra_env_names))
+
+    def source(self, provider: str, *, extra_env_names: tuple[str, ...] = ()) -> str | None:
+        configured_alias = self._configured_alias(provider)
+        if configured_alias:
+            extra_env_names = (configured_alias, *extra_env_names)
+        if keyring is not None:
+            try:
+                if keyring.get_password("SecLyst", provider):
+                    return "keyring"
+            except Exception:
+                pass
+        for name in (*extra_env_names, *PROVIDER_ENV_KEYS.get(provider, ())):
+            if os.getenv(name, "").strip():
+                return f"environment:{name}"
+        return None
+
+    @staticmethod
+    def _configured_alias(provider: str) -> str | None:
+        path_value = os.getenv("SECLYST_SETTINGS_PATH", "").strip()
+        if not path_value:
+            return None
+        try:
+            data = json.loads(Path(path_value).read_text(encoding="utf-8"))
+            value = data.get("api_env_aliases", {}).get(provider)
+            return value if isinstance(value, str) and value else None
+        except (OSError, json.JSONDecodeError):
+            return None
 
     def set(self, provider: str, value: str) -> None:
         if keyring is None:
