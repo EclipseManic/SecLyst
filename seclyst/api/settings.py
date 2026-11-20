@@ -27,6 +27,12 @@ PROVIDER_TOOLS = {
     "abstractapi": ["phishing"],
     "ipqualityscore": ["phishing"],
     "hunter": ["phishing"],
+    "malwarebazaar": ["ioc"],
+    "threatfox": ["ioc"],
+    "urlhaus": ["ioc"],
+    "triage": ["malware", "ioc"],
+    "chainabuse": ["ioc"],
+    "hudson_rock": ["ioc"],
 }
 
 
@@ -97,6 +103,33 @@ TOOL_SCHEMAS = {
         ),
     },
     "events": {
+        "max_upload_mb": field(
+            "Maximum EVTX file",
+            "integer",
+            100,
+            "Maximum size per EVTX file in MB.",
+            "EVTX_VIEWER_MAX_UPLOAD_MB",
+            min=1,
+            max=4096,
+        ),
+        "max_files_per_upload": field(
+            "Files per upload",
+            "integer",
+            500,
+            "Maximum EVTX files in one upload.",
+            "EVTX_VIEWER_MAX_FILES",
+            min=1,
+            max=5000,
+        ),
+        "max_request_mb": field(
+            "Maximum request",
+            "integer",
+            2048,
+            "Combined request ceiling in MB.",
+            "EVTX_VIEWER_MAX_REQUEST_MB",
+            min=1,
+            max=16384,
+        ),
         "page_limit": field(
             "Events per page",
             "integer",
@@ -106,24 +139,33 @@ TOOL_SCHEMAS = {
             min=25,
             max=2000,
         ),
-        "max_events": field(
-            "Maximum events",
+        "max_events_per_file": field(
+            "Events per file",
             "integer",
-            5000000,
-            "Ingestion ceiling per investigation.",
-            "EVTX_VIEWER_MAX_EVENTS",
-            min=1000,
+            0,
+            "Per-file event ceiling; zero means unlimited.",
+            "EVTX_VIEWER_MAX_EVENTS_PER_FILE",
+            min=0,
             max=50000000,
         ),
         "store_raw": field(
             "Store raw event XML", "boolean", False, "Retain raw XML for detailed forensics.", "EVTX_VIEWER_STORE_RAW"
         ),
-        "auto_sigma": field(
-            "Run Sigma automatically",
+        "concurrent_ingest": field(
+            "Concurrent ingestion",
+            "integer",
+            2,
+            "Simultaneous ingestion jobs.",
+            "EVTX_VIEWER_CONCURRENT_INGEST",
+            min=1,
+            max=16,
+        ),
+        "delete_after_ingest": field(
+            "Delete uploaded copies",
             "boolean",
             True,
-            "Evaluate bundled Sigma rules during ingestion.",
-            "EVTX_VIEWER_AUTO_SIGMA",
+            "Remove temporary EVTX copies after ingestion.",
+            "EVTX_VIEWER_DELETE_AFTER_INGEST",
         ),
     },
     "phishing": {
@@ -148,6 +190,21 @@ TOOL_SCHEMAS = {
             "PHISHING_WORKERS",
             min=1,
             max=32,
+        ),
+        "vt_delay_seconds": field(
+            "VirusTotal delay", "integer", 16, "Delay between VirusTotal requests.", "VT_DELAY_SECONDS", min=0, max=300
+        ),
+        "max_vt_items": field(
+            "VirusTotal item limit",
+            "integer",
+            10,
+            "Maximum enriched artifacts per email.",
+            "MAX_VT_ITEMS",
+            min=0,
+            max=100,
+        ),
+        "max_urlscan_items": field(
+            "URLScan item limit", "integer", 5, "Maximum URLs processed per email.", "MAX_URLSCAN_ITEMS", min=0, max=100
         ),
     },
     "ruleforge": {

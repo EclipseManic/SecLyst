@@ -26,6 +26,12 @@ PROVIDER_ENV_KEYS = {
     "abstractapi": ("ABSTRACTAPI_KEY",),
     "ipqualityscore": ("IPQUALITYSCORE_API_KEY",),
     "hunter": ("HUNTER_API_KEY",),
+    "malwarebazaar": ("MB_AUTH_KEY", "ABUSH_CH_AUTH_KEY", "ABUSE_CH_AUTH_KEY", "ABUSE_CH_API_KEY", "ABUSECH_API_KEY"),
+    "threatfox": ("THREATFOX_API_KEY", "MB_AUTH_KEY", "ABUSH_CH_AUTH_KEY", "ABUSE_CH_API_KEY"),
+    "urlhaus": ("URLHAUS_API_KEY", "MB_AUTH_KEY", "ABUSH_CH_AUTH_KEY", "ABUSE_CH_API_KEY"),
+    "triage": ("TRIAGE_API_KEY", "TRIA_GE_API_KEY"),
+    "chainabuse": ("CHAINABUSE_API_KEY", "CHAINABUSE_API", "CHAIN_BUSE_API"),
+    "hudson_rock": ("HUDSON_API_KEY", "HUDSON_ROCK_API_KEY", "HUDSONROCK_API_KEY"),
 }
 
 
