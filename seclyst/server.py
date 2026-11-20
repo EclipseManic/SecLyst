@@ -58,10 +58,15 @@ class ToolProcess:
     log_handle: Any = None
     start_error: str = ""
     started_at: float | None = None
+    access_token: str = ""
 
     @property
     def url(self) -> str:
         return f"http://127.0.0.1:{self.port}/"
+
+    @property
+    def browser_url(self) -> str:
+        return f"{self.url}?seclyst_access={self.access_token}" if self.access_token else self.url
 
 
 TOOL_SPECS = (
@@ -138,11 +143,14 @@ class Supervisor:
         self.start_engines = start_engines
         self.durable_jobs_enabled = durable_jobs_enabled
         self.provider_broker_enabled = provider_broker_enabled
+        self.browser_access_token = secrets.token_urlsafe(32)
         self.tools = {
             spec.id: ToolProcess(spec=spec, port=_configured_port(spec))
             for spec in TOOL_SPECS
         }
         self.engine_tokens = {tool_id: secrets.token_urlsafe(32) for tool_id in self.tools}
+        for tool in self.tools.values():
+            tool.access_token = self.browser_access_token
         self._lock = threading.Lock()
 
     def _environment(self, tool: ToolProcess) -> dict[str, str]:
@@ -153,6 +161,7 @@ class Supervisor:
             "PYTHONPATH": os.pathsep.join(filter(None, (str(ROOT), env.get("PYTHONPATH", "")))),
             "SECLYST_DURABLE_JOBS": "true" if self.durable_jobs_enabled else "false",
             "SECLYST_PROVIDER_BROKER": "true" if self.provider_broker_enabled else "false",
+            "SECLYST_ACCESS_TOKEN": self.browser_access_token,
             "SECLYST_FRAME_ANCESTORS": " ".join((
                 f"http://127.0.0.1:{self.shell_port}",
                 f"http://localhost:{self.shell_port}",
@@ -293,10 +302,10 @@ class Supervisor:
                     tool.log_handle = None
 
     @staticmethod
-    def _request_json(url: str, timeout: float = 0.8) -> Any:
+    def _request_json(url: str, timeout: float = 0.8, headers: dict[str, str] | None = None) -> Any:
         request = urllib.request.Request(
             url,
-            headers={"Accept": "application/json", "User-Agent": f"Seclyst/{__version__}"},
+            headers={"Accept": "application/json", "User-Agent": f"Seclyst/{__version__}", **(headers or {})},
         )
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -307,7 +316,7 @@ class Supervisor:
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.url,
+                "url": tool.browser_url,
                 "port": tool.port,
                 "status": "error",
                 "detail": tool.start_error,
@@ -316,17 +325,17 @@ class Supervisor:
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.url,
+                "url": tool.browser_url,
                 "port": tool.port,
                 "status": "error",
                 "detail": f"Engine exited with code {exit_code}. See runtime/logs/{tool.spec.id}.log.",
             }
         try:
-            health = self._request_json(tool.url.rstrip("/") + tool.spec.health_path)
+            health = self._request_json(tool.url.rstrip("/") + tool.spec.health_path, headers={"X-SecLyst-Access": tool.access_token})
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.url,
+                "url": tool.browser_url,
                 "port": tool.port,
                 "status": "online",
                 "detail": health,
@@ -336,7 +345,7 @@ class Supervisor:
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.url,
+                "url": tool.browser_url,
                 "port": tool.port,
                 "status": status,
                 "detail": str(exc),
@@ -355,7 +364,7 @@ class Supervisor:
     def _collection(self, tool: ToolProcess) -> dict[str, Any]:
         endpoint = COLLECTION_ENDPOINTS[tool.spec.id]
         try:
-            payload = self._request_json(tool.url.rstrip("/") + endpoint, timeout=1.5)
+            payload = self._request_json(tool.url.rstrip("/") + endpoint, timeout=1.5, headers={"X-SecLyst-Access": tool.access_token})
         except (OSError, ValueError, urllib.error.URLError, json.JSONDecodeError) as exc:
             return {"count": 0, "records": [], "available": False, "detail": str(exc)}
 

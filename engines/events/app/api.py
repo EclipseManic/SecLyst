@@ -18,6 +18,8 @@ from app.config import get_config
 from app.ingest import ingest_files
 from app.logger import get_logger
 from app.report_generator import generate_report
+from app.utils import has_evtx_magic
+from app import db
 
 try:
     from seclyst.engines.client import EngineControlClient
@@ -25,8 +27,6 @@ except ImportError:
     EngineControlClient = None
 
 _seclyst_control = EngineControlClient("events") if EngineControlClient else None
-from app.utils import has_evtx_magic
-from app import db
 
 logger = get_logger("api")
 
@@ -37,6 +37,11 @@ def create_app() -> Flask:
     cfg = get_config()
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config["MAX_CONTENT_LENGTH"] = cfg.max_request_mb * 1024 * 1024
+    try:
+        from seclyst.engines.access import install_flask_access
+        install_flask_access(app)
+    except ImportError:
+        pass
 
     @app.errorhandler(RequestEntityTooLarge)
     def _handle_file_too_large(_err: Exception):

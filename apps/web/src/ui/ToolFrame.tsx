@@ -30,7 +30,14 @@ export const ToolFrame = React.forwardRef<HTMLIFrameElement, ToolFrameProps>(fun
   ref
 ) {
   const definition = TOOLS_REGISTRY[tool];
-  const src = endpoint ? new URL(query || '.', endpoint).toString() : '';
+  const src = endpoint ? (() => {
+    const url = new URL(endpoint);
+    if (query) {
+      const toolQuery = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
+      toolQuery.forEach((value, key) => url.searchParams.set(key, value));
+    }
+    return url.toString();
+  })() : '';
 
   if (!endpoint || status !== 'online') {
     return (

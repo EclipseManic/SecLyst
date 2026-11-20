@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, 
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, RedirectResponse
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -82,6 +82,16 @@ except ImportError:
     EngineControlClient = None
 
 _seclyst_control = EngineControlClient("ioc") if EngineControlClient else None
+try:
+    from seclyst.engines.access import COOKIE_NAME, clean_bootstrap_url, required_token, valid
+except ImportError:
+    COOKIE_NAME = "seclyst_access"
+    def clean_bootstrap_url(value):
+        return value
+    def required_token():
+        return ""
+    def valid(_value):
+        return True
 
 logger = get_logger("main")
 
@@ -285,6 +295,20 @@ app = FastAPI(
     redoc_url="/redoc" if not settings.api_keys else None,
     openapi_url="/openapi.json" if not settings.api_keys else None,
 )
+
+@app.middleware("http")
+async def seclyst_access_middleware(request: Request, call_next):
+    if not required_token():
+        return await call_next(request)
+    bootstrap = request.query_params.get("seclyst_access")
+    if bootstrap and valid(bootstrap):
+        response = RedirectResponse(clean_bootstrap_url(str(request.url)), status_code=302)
+        response.set_cookie(COOKIE_NAME, bootstrap, httponly=True, samesite="strict", path="/")
+        return response
+    supplied = request.headers.get("X-SecLyst-Access") or request.cookies.get(COOKIE_NAME)
+    if not valid(supplied):
+        return JSONResponse({"error": "SecLyst access required"}, status_code=403)
+    return await call_next(request)
 
 
 def _configured_origins() -> tuple[str, ...]:

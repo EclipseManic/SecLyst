@@ -47,6 +47,8 @@ Linux or macOS:
 
 Seclyst opens at `http://127.0.0.1:7000/`. One Ctrl+C stops the shell and all five copied engines.
 
+Copied engine ports are not standalone entry points while SecLyst is running. Each launch creates a random access token; SecLyst bootstraps HttpOnly engine sessions, supervisor probes authenticate privately, and direct unauthenticated requests to ports 7101 through 7105 receive HTTP 403.
+
 The shell is served by the FastAPI control plane. Durable job APIs are available under `/api/v1/jobs`; Malware and Phishing publish progress and final results there while retaining their original local endpoints. Set `SECLYST_DURABLE_JOBS=false` only as a migration rollback switch.
 
 VirusTotal lookups from Malware, Phishing, and IOC are coordinated by one server-side provider broker. Identical concurrent requests share one upstream call, successful and not-found responses carry cache provenance, and shared quota exhaustion produces an explicit wait instead of independent tool failures. Set `SECLYST_PROVIDER_BROKER=false` to restore standalone provider paths during rollback.
@@ -63,6 +65,8 @@ Provider credentials can instead be stored through the operating-system keyring:
 .venv\Scripts\python.exe -m seclyst credentials set virustotal
 .venv\Scripts\python.exe -m seclyst credentials status
 ```
+
+Settings exposes the detected key source and environment variable name for every provider. Shared providers are separated from tool-specific providers, environment aliases are editable, and each tool's validated configuration is rendered as GUI controls rather than raw JSON.
 
 External submission features remain disabled by default. Enabling a provider key does not automatically opt a sample into public submission.
 

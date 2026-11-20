@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import urllib.error
@@ -14,9 +15,10 @@ from seclyst.server import Supervisor, build_http_server
 
 @pytest.fixture(scope="module")
 def platform() -> Iterator[tuple[Supervisor, str]]:
-    supervisor = Supervisor(7000)
+    shell_port = int(os.getenv("SECLYST_TEST_SHELL_PORT", "7000"))
+    supervisor = Supervisor(shell_port)
     supervisor.start_all()
-    server = build_http_server("127.0.0.1", 7000, supervisor)
+    server = build_http_server("127.0.0.1", shell_port, supervisor)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
@@ -31,7 +33,7 @@ def platform() -> Iterator[tuple[Supervisor, str]]:
         pytest.fail(f"Engines did not become ready: {last_status}")
 
     try:
-        yield supervisor, "http://127.0.0.1:7000"
+        yield supervisor, f"http://127.0.0.1:{shell_port}"
     finally:
         server.shutdown()
         server.server_close()
@@ -58,7 +60,8 @@ def test_platform_reports_all_five_engines_online(platform) -> None:
 def test_every_original_interface_is_served_as_html(platform) -> None:
     supervisor, _base_url = platform
     for tool_id, tool in supervisor.tools.items():
-        with urllib.request.urlopen(tool.url, timeout=5) as response:
+        request = urllib.request.Request(tool.url, headers={"X-SecLyst-Access": tool.access_token})
+        with urllib.request.urlopen(request, timeout=5) as response:
             body = response.read(8192).decode("utf-8", "replace").lower()
             assert response.status == 200, tool_id
             assert "<html" in body or "<!doctype html" in body, tool_id
@@ -77,11 +80,22 @@ def test_every_history_collection_is_live(platform) -> None:
 def test_restricted_tools_allow_only_seclyst_frame_ancestors(platform) -> None:
     supervisor, _base_url = platform
     for tool_id in ("ioc", "ruleforge"):
-        with urllib.request.urlopen(supervisor.tools[tool_id].url, timeout=5) as response:
+        tool = supervisor.tools[tool_id]
+        request = urllib.request.Request(tool.url, headers={"X-SecLyst-Access": tool.access_token})
+        with urllib.request.urlopen(request, timeout=5) as response:
             assert response.headers.get("X-Frame-Options") is None
             policy = response.headers["Content-Security-Policy"]
-            assert "frame-ancestors http://127.0.0.1:7000" in policy
-            assert "frame-ancestors *" not in policy
+            assert f"frame-ancestors http://127.0.0.1:{int(os.getenv('SECLYST_TEST_SHELL_PORT', '7000'))}" in policy
+        assert "frame-ancestors *" not in policy
+
+
+@pytest.mark.integration
+def test_direct_engine_access_requires_seclyst_bootstrap(platform) -> None:
+    supervisor, _base_url = platform
+    for tool in supervisor.tools.values():
+        with pytest.raises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(tool.url, timeout=5)
+        assert error.value.code == 403
 
 
 @pytest.mark.integration

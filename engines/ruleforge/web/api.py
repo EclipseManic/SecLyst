@@ -54,6 +54,18 @@ except ImportError:
     EngineControlClient = None
 
 _seclyst_control = EngineControlClient("ruleforge") if EngineControlClient else None
+try:
+    from seclyst.engines.access import COOKIE_NAME, clean_bootstrap_url, cookie_value, required_token, valid
+except ImportError:
+    COOKIE_NAME = "seclyst_access"
+    def clean_bootstrap_url(value):
+        return value
+    def cookie_value(_value):
+        return None
+    def required_token():
+        return ""
+    def valid(_value):
+        return True
 
 __all__ = ["Api", "RuleForgeHandler", "build_server", "serve", "MAX_BODY_BYTES"]
 
@@ -978,6 +990,23 @@ class RuleForgeHandler(BaseHTTPRequestHandler):
 
     api: Api  # set by build_server
 
+    def _authorize_seclyst(self) -> bool:
+        if not required_token():
+            return True
+        parsed = urlparse(self.path)
+        bootstrap = parse_qs(parsed.query).get("seclyst_access", [None])[0]
+        if bootstrap and valid(bootstrap):
+            self.send_response(302)
+            self.send_header("Location", clean_bootstrap_url(self.path))
+            self.send_header("Set-Cookie", f"{COOKIE_NAME}={bootstrap}; HttpOnly; SameSite=Strict; Path=/")
+            self.end_headers()
+            return False
+        supplied = self.headers.get("X-SecLyst-Access") or cookie_value(self.headers.get("Cookie"))
+        if not valid(supplied):
+            self.send_error(403, "SecLyst access required")
+            return False
+        return True
+
     # -- plumbing ---------------------------------------------------------
 
     def log_message(self, fmt: str, *args: Any) -> None:
@@ -1336,10 +1365,12 @@ class RuleForgeHandler(BaseHTTPRequestHandler):
             }})
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's contract
-        self._dispatch("GET")
+        if self._authorize_seclyst():
+            self._dispatch("GET")
 
     def do_POST(self) -> None:  # noqa: N802
-        self._dispatch("POST")
+        if self._authorize_seclyst():
+            self._dispatch("POST")
 
     def do_DELETE(self) -> None:  # noqa: N802
         self._dispatch("DELETE")
