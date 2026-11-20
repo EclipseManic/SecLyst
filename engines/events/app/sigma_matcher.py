@@ -448,6 +448,21 @@ def match_event(event: Dict[str, Any]) -> List[Dict[str, Any]]:
     for entry in get_compiled_rules():
         if not entry["valid"]:
             continue
+        logsource = entry["rule"].get("logsource") or {}
+        service = str(logsource.get("service") or "").lower()
+        category = str(logsource.get("category") or "").lower()
+        channel = str(event.get("channel") or "").lower()
+        if service and service not in channel:
+            continue
+        category_ids = {
+            "process_creation": {"1", "4688"},
+            "network_connection": {"3", "5156"},
+            "image_load": {"7"},
+            "file_event": {"11"},
+            "registry_event": {"12", "13", "14"},
+        }
+        if category in category_ids and event_id_str not in category_ids[category]:
+            continue
         eid_patterns = entry.get("event_id_patterns")
         if eid_patterns and not any(p.search(event_id_str) for p in eid_patterns):
             continue

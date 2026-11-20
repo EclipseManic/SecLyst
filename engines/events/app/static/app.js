@@ -1,5 +1,12 @@
 const { createApp } = Vue;
 
+window.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "m") {
+    event.preventDefault();
+    window.parent.postMessage({ protocol: "seclyst-tool/v1", tool: "events", type: "command.open", payload: {}, message_id: crypto.randomUUID() }, "*");
+  }
+}, true);
+
 createApp({
   data() {
     return {
@@ -477,33 +484,9 @@ createApp({
     },
     exportSigma(fmt) {
       if (!this.selectedId) return;
-      const rows = this.filteredSigma;
-      if (!rows.length) return;
-      const data = rows.map(g => ({
-        rule_id: g.rule_id,
-        rule_title: g.rule_title || '',
-        level: g.level,
-        match_count: g.match_count,
-        description: g.description || '',
-        mitre_techniques: (g.mitre_techniques || []).map(m => `${m.id} ${m.name}`).join('; ')
-      }));
-      if (fmt === 'json') {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${this.selectedId}_sigma.json`; a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const header = 'rule_id,rule_title,level,match_count,description,mitre_techniques';
-        const rows_csv = data.map(r =>
-          [r.rule_id, r.rule_title, r.level, r.match_count, `"${(r.description||'').replace(/"/g,'""')}"`, `"${r.mitre_techniques.replace(/"/g,'""')}"`].join(',')
-        );
-        const blob = new Blob([header + '\n' + rows_csv.join('\n')], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${this.selectedId}_sigma.csv`; a.click();
-        URL.revokeObjectURL(url);
-      }
+      let url = `/api/investigations/${this.selectedId}/sigma/export?format=${encodeURIComponent(fmt)}`;
+      if (this.sigmaFilterLevel) url += `&level=${encodeURIComponent(this.sigmaFilterLevel)}`;
+      window.open(url, '_blank');
     },
     async openSigmaDetail(sigmaMatch) {
       if (!this.selectedId || !sigmaMatch) return;

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from app.logger import get_logger
 
@@ -26,7 +26,8 @@ _URL_RE = re.compile(_IOC_PATTERNS["url"])
 _EMAIL_RE = re.compile(_IOC_PATTERNS["email"])
 _FILEPATH_RE = re.compile(_IOC_PATTERNS["filepath"])
 _REGISTRY_RE = re.compile(_IOC_PATTERNS["registry"])
-_IOC_MEGA_RE = re.compile("|".join(f"(?P<{k}>{v})" for k, v in _IOC_PATTERNS.items()))
+_IOC_MATCH_ORDER = ("url", "email", "filepath", "registry", "ip", "hash", "domain")
+_IOC_MEGA_RE = re.compile("|".join(f"(?P<{key}>{_IOC_PATTERNS[key]})" for key in _IOC_MATCH_ORDER))
 
 _PROCESS_NAME_RE = re.compile(r"(?:^|\\)([^\\\"]+)\.(?:exe|dll|ps1|bat|cmd|vbs|js|py|jar)", re.IGNORECASE)
 

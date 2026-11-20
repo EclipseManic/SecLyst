@@ -13,6 +13,17 @@ PROVIDER_ENV_KEYS = {
     "urlscan": ("URL_SCAN_API_KEY", "URLSCAN_API_KEY"),
     "hybrid_analysis": ("HA_API_KEY", "HYBRID_ANALYSIS_API_KEY"),
     "filescan": ("FILESCAN_API_KEY",),
+    "abuseipdb": ("ABUSEIPDB_API_KEY",),
+    "shodan": ("SHODAN_API_KEY",),
+    "otx": ("OTX_API_KEY",),
+    "greynoise": ("GREYNOISE_API_KEY",),
+    "censys": ("CENSYS_API_KEY",),
+    "ipinfo": ("IPINFO_API_KEY",),
+    "nvd": ("NVD_API_KEY",),
+    "etherscan": ("ETHERSCAN_API_KEY",),
+    "abstractapi": ("ABSTRACTAPI_KEY",),
+    "ipqualityscore": ("IPQUALITYSCORE_API_KEY",),
+    "hunter": ("HUNTER_API_KEY",),
 }
 
 

@@ -170,6 +170,20 @@ class Supervisor:
             env.pop("VIRUSTOTAL_API_KEY", None)
         data_dir = (RUNTIME / tool.spec.id).resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
+        from .providers.credentials import CredentialStore, PROVIDER_ENV_KEYS
+
+        provider_access = {
+            "malware": {"virustotal", "hybrid_analysis", "filescan"},
+            "ioc": set(PROVIDER_ENV_KEYS),
+            "phishing": {"virustotal", "urlscan", "abstractapi", "ipqualityscore", "hunter"},
+            "events": set(),
+            "ruleforge": set(),
+        }
+        credential_store = CredentialStore()
+        for provider in provider_access[tool.spec.id]:
+            credential = credential_store.get(provider)
+            if credential:
+                env[PROVIDER_ENV_KEYS[provider][0]] = credential
 
         if tool.spec.id == "malware":
             env.update({
@@ -503,6 +517,7 @@ def main(argv: list[str] | None = None) -> int:
         engine_tokens=supervisor.engine_tokens,
         provider_broker=provider_broker,
         artifact_store=artifact_store,
+        runtime_dir=settings.runtime_dir,
     )
     url = f"http://{args.host}:{args.port}/"
 

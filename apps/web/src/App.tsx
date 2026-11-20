@@ -11,10 +11,7 @@ import { BrandShieldIcon, ShellIcon, ToolIcon } from './lib/icons';
 import { ToolDock } from './features/tools/ToolDock';
 import type { ToolBridgeMessage } from './features/tools/frame-protocol';
 import { activateToolSession, createToolSessions, updateToolSessionQuery } from './features/tools/tool-session-store';
-import { FirstRunTourModal } from './pages/Landing';
-import { Workbench } from './pages/Workbench';
-import { RunsPage } from './pages/Runs';
-import { DetectionLab } from './pages/DetectionLab';
+import { FirstRunTourModal, LandingPage } from './pages/Landing';
 import { SettingsPage } from './pages/SettingsLive';
 // Each tool screen is that tool's own interface, hosted rather than redrawn.
 import { ToolFrame } from './ui/ToolFrame';
@@ -24,9 +21,7 @@ import { Kbd, Modal } from './ui/index';
 // is, the five tools, and the settings that apply to all of them. It is the
 // only way to change screen — there used to be five, none of them obvious.
 const WORKSPACE_NAV: { page: PageRouteId; label: string; icon: 'home' | 'dashboard'; hotkey: string }[] = [
-  { page: 'home', label: 'Workbench', icon: 'home', hotkey: '0' },
-  { page: 'dashboard', label: 'Runs', icon: 'dashboard', hotkey: 'R' },
-  { page: 'detections', label: 'Detection Lab', icon: 'dashboard', hotkey: 'L' }
+  { page: 'home', label: 'Dashboard', icon: 'home', hotkey: '' }
 ];
 
 const KEEPALIVE_TOOL_FRAMES = import.meta.env.VITE_SECLYST_KEEPALIVE_FRAMES !== '0';
@@ -223,8 +218,10 @@ safeLocalSet('seclyst.reduceMotion', reduceMotion);
       let nextPage: PageRouteId | null = null;
       if (!raw) nextPage = 'home';
       else if (scope === 't' && id && id in TOOLS_REGISTRY) nextPage = id as ToolId;
-      else if (scope === 'home' || scope === 'dashboard' || scope === 'detections' || scope === 'settings') {
+      else if (scope === 'home' || scope === 'settings') {
         nextPage = scope as PageRouteId;
+      } else if (scope === 'dashboard' || scope === 'detections') {
+        nextPage = 'home';
       }
       if (!nextPage) return;
 
@@ -257,7 +254,7 @@ safeLocalSet('seclyst.reduceMotion', reduceMotion);
   // Global keyboard shortcuts (Section 4.3 & 18)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         setCommandPaletteOpen((prev) => !prev);
         return;
@@ -272,13 +269,6 @@ if (e.key === 'Escape') {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
-      if (e.key === '0') navigateTo('home');
-      else if (e.key === '1') navigateTo('ioc', 'lookup', 'lookup');
-      else if (e.key === '2') navigateTo('malware', 'investigation', 'dashboard');
-      else if (e.key === '3') navigateTo('phishing', 'analysis', 'dashboard');
-      else if (e.key === '4') navigateTo('events', 'investigation', 'events');
-      else if (e.key === '5') navigateTo('ruleforge', 'workshop', 'author');
-      else if (e.key === '?') setTourOpen(true);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -333,6 +323,10 @@ if (e.key === 'Escape') {
   }, [activeTool]);
 
   const handleToolBridgeMessage = useCallback((message: ToolBridgeMessage) => {
+    if (message.type === 'command.open') {
+      setCommandPaletteOpen(true);
+      return;
+    }
     if (message.type !== 'route.changed') return;
     const query = message.payload.query;
     if (typeof query === 'string' && query.startsWith('?')) {
@@ -343,20 +337,18 @@ if (e.key === 'Escape') {
   // Command Palette searchable items
   const commandItems = useMemo(() => {
     const list = [
-      { category: 'Navigation', label: 'Workbench', hotkey: '0', action: () => navigateTo('home') },
-      { category: 'Navigation', label: 'Runs', hotkey: 'R', action: () => navigateTo('dashboard') },
-      { category: 'Navigation', label: 'Detection Lab', hotkey: 'L', action: () => navigateTo('detections') },
-      { category: 'Tools', label: 'IOC Lookup', hotkey: '1', action: () => navigateTo('ioc', 'lookup', 'lookup') },
-      { category: 'Tools', label: 'Malware Analyzer', hotkey: '2', action: () => navigateTo('malware', 'investigation', 'dashboard') },
-      { category: 'Tools', label: 'Phishing Detector', hotkey: '3', action: () => navigateTo('phishing', 'analysis', 'dashboard') },
-      { category: 'Tools', label: 'Event Analyzer', hotkey: '4', action: () => navigateTo('events', 'investigation', 'events') },
-      { category: 'Tools', label: 'RuleForge', hotkey: '5', action: () => navigateTo('ruleforge', 'workshop', 'author') },
-      { category: 'Actions', label: 'Run a malware scan', hotkey: 'U', action: () => navigateTo('malware', 'investigation', 'dashboard') },
-      { category: 'Actions', label: 'Upload an EVTX log', hotkey: 'E', action: () => navigateTo('events', 'investigation', 'events') },
-      { category: 'Actions', label: 'Analyze a phishing email', hotkey: 'P', action: () => navigateTo('phishing', 'analysis', 'dashboard') },
-      { category: 'Settings', label: 'Toggle light / dark theme', hotkey: 'T', action: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark') },
-      { category: 'Settings', label: 'Backend connections', hotkey: 'K', action: () => navigateTo('settings') },
-      { category: 'Settings', label: 'How this works (tour)', hotkey: '?', action: () => setTourOpen(true) }
+      { category: 'Navigation', label: 'Dashboard', hotkey: '', action: () => navigateTo('home') },
+      { category: 'Tools', label: 'IOC Lookup', hotkey: '', action: () => navigateTo('ioc', 'lookup', 'lookup') },
+      { category: 'Tools', label: 'Malware Analyzer', hotkey: '', action: () => navigateTo('malware', 'investigation', 'dashboard') },
+      { category: 'Tools', label: 'Phishing Detector', hotkey: '', action: () => navigateTo('phishing', 'analysis', 'dashboard') },
+      { category: 'Tools', label: 'Event Analyzer', hotkey: '', action: () => navigateTo('events', 'investigation', 'events') },
+      { category: 'Tools', label: 'RuleForge', hotkey: '', action: () => navigateTo('ruleforge', 'workshop', 'author') },
+      { category: 'Actions', label: 'Run a malware scan', hotkey: '', action: () => navigateTo('malware', 'investigation', 'dashboard') },
+      { category: 'Actions', label: 'Upload an EVTX log', hotkey: '', action: () => navigateTo('events', 'investigation', 'events') },
+      { category: 'Actions', label: 'Analyze a phishing email', hotkey: '', action: () => navigateTo('phishing', 'analysis', 'dashboard') },
+      { category: 'Settings', label: 'Toggle light / dark theme', hotkey: '', action: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark') },
+      { category: 'Settings', label: 'Backend connections', hotkey: '', action: () => navigateTo('settings') },
+      { category: 'Settings', label: 'How this works', hotkey: '', action: () => setTourOpen(true) }
     ];
     if (!commandQuery.trim()) return list;
     return list.filter((i) => `${i.category} ${i.label}`.toLowerCase().includes(commandQuery.toLowerCase()));
@@ -388,7 +380,7 @@ const userInitials = userName
     <div
       className="sc-root sc-app"
       data-theme={resolvedTheme}
-      data-tool={currentToolDef ? currentToolDef.id : page === 'dashboard' ? 'dashboard' : 'home'}
+      data-tool={currentToolDef ? currentToolDef.id : 'home'}
       data-compact={compactMode ? 'true' : 'false'}
       data-reduce-motion={reduceMotion ? 'true' : 'false'}
       style={{ fontSize: `${fontScale}%` }}
@@ -429,7 +421,7 @@ const userInitials = userName
               </span>
               <span className="sc-nav-label">{item.label}</span>
               <span className="sc-nav-hint">
-                <Kbd>{item.hotkey}</Kbd>
+                {item.hotkey && <Kbd>{item.hotkey}</Kbd>}
               </span>
             </button>
           ))}
@@ -448,9 +440,6 @@ const userInitials = userName
                 <ToolIcon tool={tool.id} size={17} />
               </span>
               <span className="sc-nav-label">{tool.name}</span>
-              <span className="sc-nav-hint">
-                <Kbd>{tool.hotkey}</Kbd>
-              </span>
             </button>
           ))}
         </nav>
@@ -468,7 +457,7 @@ const userInitials = userName
             <ShellIcon name="search" size={16} />
             <span className="sc-rail-search-label">Search</span>
             <span className="sc-rail-kbd">
-              <Kbd>Ctrl K</Kbd>
+              <Kbd>Ctrl M</Kbd>
             </span>
           </button>
 
@@ -639,17 +628,19 @@ const userInitials = userName
         >
           {page === 'home' && (
             <div className="sc-scroll">
-              <Workbench onNavigate={navigateTo} />
+              <LandingPage
+                onNavigate={navigateTo}
+                onOpenSettings={() => navigateTo('settings')}
+                onOpenTour={() => setTourOpen(true)}
+                activityFeed={activityFeed}
+                clipboardCount={iocClipboard.length}
+                onQuickIocLookup={(ioc) => {
+                  setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(ioc)}`);
+                  navigateTo('ioc', 'lookup', 'lookup');
+                }}
+              />
             </div>
           )}
-
-          {page === 'dashboard' && (
-            <div className="sc-scroll">
-              <RunsPage />
-            </div>
-          )}
-
-          {page === 'detections' && <div className="sc-scroll"><DetectionLab /></div>}
 
           {KEEPALIVE_TOOL_FRAMES ? (
             <ToolDock
@@ -879,7 +870,7 @@ const userInitials = userName
       </div>
 
       {/* =================================================================== */}
-      {/* COMMAND PALETTE (Ctrl+K / Cmd+K)                                    */}
+      {/* UNIVERSAL NAVIGATOR (Ctrl+M / Cmd+M)                                */}
       {/* =================================================================== */}
       {commandPaletteOpen && (
         <div
@@ -927,7 +918,7 @@ const userInitials = userName
                         onClick={item.action}
                       >
                         <span>{item.label}</span>
-                        <Kbd>{item.hotkey}</Kbd>
+                        {item.hotkey && <Kbd>{item.hotkey}</Kbd>}
                       </button>
                     ))}
                   </div>

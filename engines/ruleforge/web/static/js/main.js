@@ -23,6 +23,13 @@ import * as datasets from './screens/datasets.js';
 import * as receipts from './screens/receipts.js';
 import * as versions from './screens/versions.js';
 import * as explain from './screens/explain.js';
+
+window.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'm') {
+    event.preventDefault();
+    window.parent.postMessage({ protocol: 'seclyst-tool/v1', tool: 'ruleforge', type: 'command.open', payload: {}, message_id: crypto.randomUUID() }, '*');
+  }
+}, true);
 import * as draft from './screens/draft.js';
 import * as reference from './screens/reference.js';
 import * as health from './screens/health.js';

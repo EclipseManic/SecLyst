@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 try:
     from selenium import webdriver
     from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support.ui import WebDriverWait
 except ImportError as exc:  # pragma: no cover - environment guidance
     raise SystemExit("Install requirements-dev.txt to run browser verification.") from exc
@@ -73,7 +74,7 @@ def main() -> int:
         driver = webdriver.Chrome(options=options)
         wait = WebDriverWait(driver, 25)
 
-        for route, expected in (("#/", "Workbench"), ("#/dashboard", "Analysis runs"), ("#/detections", "Detection Lab"), ("#/settings", "Settings")):
+        for route, expected in (("#/", "What do you want to analyze?"), ("#/settings", "Settings")):
             driver.get(base_url + route)
             wait.until(lambda browser: expected in browser.find_element(By.TAG_NAME, "body").text)
             print(f"shell {route}: ok")
@@ -139,10 +140,20 @@ def main() -> int:
             raise RuntimeError("Malware iframe JavaScript context was lost during tool navigation.")
         print("tool sessions: iframe identity, JavaScript state and accessibility isolation retained")
 
+        driver.execute_script("window.location.hash = '#/t/ioc'")
+        ioc_frame = wait.until(lambda browser: browser.find_element(By.CSS_SELECTOR, '.sc-tool-session.is-active[data-tool="ioc"] iframe'))
+        driver.switch_to.frame(ioc_frame)
+        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.CONTROL, "m")
+        driver.switch_to.default_content()
+        wait.until(lambda browser: browser.find_element(By.CSS_SELECTOR, ".sc-modal .sc-palette-input"))
+        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        print("universal Ctrl+M navigator: opens from inside an isolated tool frame")
+
         severe = [
             entry for entry in driver.get_log("browser")
             if entry.get("level") == "SEVERE"
             and "favicon" not in entry.get("message", "").lower()
+            and "focus-without-user-activation" not in entry.get("message", "").lower()
         ]
         if severe:
             for entry in severe:

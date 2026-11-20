@@ -9,6 +9,7 @@ export type ToolBridgeMessageType =
   | 'job.updated'
   | 'job.completed'
   | 'result.opened'
+  | 'command.open'
   | 'unsaved.changed';
 
 export interface ToolBridgeMessage {
@@ -26,6 +27,7 @@ const MESSAGE_TYPES = new Set<ToolBridgeMessageType>([
   'job.updated',
   'job.completed',
   'result.opened',
+  'command.open',
   'unsaved.changed'
 ]);
 

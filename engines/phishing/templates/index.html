@@ -772,6 +772,12 @@
   </div>
 </div>
 <script>
+window.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        window.parent.postMessage({ protocol: 'seclyst-tool/v1', tool: 'phishing', type: 'command.open', payload: {}, message_id: crypto.randomUUID() }, '*');
+    }
+}, true);
 const tabBtns       = document.querySelectorAll(".tab-btn");
 const tabPanels     = document.querySelectorAll(".tab-panel");
 const form          = document.getElementById("analysis-form");

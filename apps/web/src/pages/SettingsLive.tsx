@@ -2,7 +2,7 @@
 // Seclyst shell settings
 // ==========================================================================
 import React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TOOLS_REGISTRY } from '../data/workspace';
 import type { ToastMessage, ToolDefinition, ToolId } from '../data/workspace';
 import { downloadFileBlob } from '../lib/api-client';
@@ -16,7 +16,7 @@ const TRANSPORT: Record<ToolId, string> = {
   ruleforge: 'REST'
 };
 
-type Category = 'appearance' | 'backends' | 'security' | 'data' | 'shortcuts' | 'about';
+type Category = 'appearance' | 'apis' | 'tools' | 'backends' | 'security' | 'data' | 'shortcuts' | 'about';
 
 export const SettingsPage: React.FC<{
   theme: 'dark' | 'light' | 'system';
@@ -48,7 +48,14 @@ export const SettingsPage: React.FC<{
   onAddToast
 }) => {
   const [category, setCategory] = useState<Category>('appearance');
+  const [centralSettings, setCentralSettings] = useState<any>({ providers: {}, tools: {} });
+  const [providerSecrets, setProviderSecrets] = useState<Record<string, string>>({});
+  const [selectedTool, setSelectedTool] = useState<ToolId>('malware');
+  const [toolConfigText, setToolConfigText] = useState('{}');
   const tools = Object.values(TOOLS_REGISTRY) as ToolDefinition[];
+  const reloadSettings = () => fetch('/api/v1/settings').then((response) => response.json()).then(setCentralSettings).catch(() => undefined);
+  useEffect(() => { void reloadSettings(); }, []);
+  useEffect(() => { setToolConfigText(JSON.stringify(centralSettings.tools?.[selectedTool] || {}, null, 2)); }, [centralSettings, selectedTool]);
 
   const clearShellData = () => {
     try {
@@ -83,6 +90,8 @@ export const SettingsPage: React.FC<{
         <nav className="md:col-span-3 ui-card ui-card-pad h-fit space-y-1" aria-label="Settings sections">
           {([
             ['appearance', 'Appearance'],
+            ['apis', 'Shared APIs'],
+            ['tools', 'Tool configuration'],
             ['backends', 'Backend connections'],
             ['security', 'Security'],
             ['data', 'Shell data'],
@@ -157,6 +166,13 @@ export const SettingsPage: React.FC<{
             </div>
           )}
 
+          {category === 'apis' && <div className="space-y-4">
+            <div><h2 className="ui-h2">Shared provider APIs</h2><p className="ui-body mt-1">One credential per provider is shared by every tool through SecLyst’s broker, cache, and rate limiter.</p></div>
+            {Object.entries(centralSettings.providers || {}).map(([provider, state]: any) => <div className="ui-well p-3 flex flex-col sm:flex-row gap-3 sm:items-center" key={provider}><div className="flex-1"><span className="ui-strong block">{provider}</span><span className="ui-meta">{state.configured ? 'Configured in the secure server credential store' : 'Not configured'}</span></div><input className="ui-input sm:max-w-xs" type="password" placeholder="New API key" value={providerSecrets[provider] || ''} onChange={(event) => setProviderSecrets({...providerSecrets,[provider]:event.target.value})}/><button className="ui-btn ui-btn--primary" type="button" disabled={!providerSecrets[provider]} onClick={async()=>{await fetch(`/api/v1/settings/providers/${provider}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:providerSecrets[provider]})});setProviderSecrets({...providerSecrets,[provider]:''});void reloadSettings();}}>Save</button></div>)}
+          </div>}
+
+          {category === 'tools' && <div className="space-y-4"><div><h2 className="ui-h2">Tool configuration</h2><p className="ui-body mt-1">Tool-specific behavior remains separate while provider credentials stay shared.</p></div><div className="ui-tabs">{tools.map((tool)=><button className="ui-tab" aria-selected={selectedTool===tool.id} key={tool.id} onClick={()=>setSelectedTool(tool.id)}>{tool.shortName}</button>)}</div><textarea className="ui-input sc-mono" rows={12} value={toolConfigText} onChange={(event)=>setToolConfigText(event.target.value)}/><button className="ui-btn ui-btn--primary" type="button" onClick={async()=>{try{const values=JSON.parse(toolConfigText);await fetch(`/api/v1/settings/tools/${selectedTool}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values})});onAddToast({type:'success',title:'Tool configuration saved',description:'Restart SecLyst to apply engine-level changes.'});void reloadSettings();}catch{onAddToast({type:'error',title:'Invalid configuration JSON'});}}}>Save {TOOLS_REGISTRY[selectedTool].shortName} configuration</button></div>}
+
           {category === 'security' && (
             <div className="space-y-4">
               <h2 className="ui-h2">Security boundary</h2>
@@ -192,9 +208,7 @@ export const SettingsPage: React.FC<{
               <h2 className="ui-h2">Keyboard shortcuts</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {[
-                  ['Ctrl + K / Cmd + K', 'Open commands'], ['0', 'Open Overview'], ['1', 'Open IOC Lookup'],
-                  ['2', 'Open Malware Analyzer'], ['3', 'Open Phishing Detector'], ['4', 'Open Event Analyzer'],
-                  ['5', 'Open RuleForge'], ['Escape', 'Close the active overlay']
+                  ['Ctrl + M / Cmd + M', 'Open universal navigation from anywhere']
                 ].map(([key, description]) => (
                   <div key={key} className="ui-well p-3 flex items-center justify-between gap-3"><span>{description}</span><Kbd>{key}</Kbd></div>
                 ))}

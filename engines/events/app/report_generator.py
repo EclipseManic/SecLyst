@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from html import escape
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from app import db
 from app.ioc_extractor import extract_iocs
@@ -21,6 +21,8 @@ def generate_report(investigation_id: str) -> str:
 
     events = db.get_events(investigation_id, limit=5000)
     total_count = db.get_event_count(investigation_id)
+    ioc_totals = db.get_ioc_summary(investigation_id)
+    sigma_match_total = db.count_sigma_matches(investigation_id)
     channels = db.get_channels(investigation_id)
     providers = db.get_providers(investigation_id)
 
@@ -48,7 +50,7 @@ def generate_report(investigation_id: str) -> str:
         ioc_type = ioc.get("ioc_type", "unknown")
         by_type[ioc_type] = by_type.get(ioc_type, 0) + 1
 
-    ioc_summary = dict(sorted(by_type.items(), key=lambda x: -x[1]))
+    ioc_summary = ioc_totals["types"] or dict(sorted(by_type.items(), key=lambda x: -x[1]))
 
     inv_name = escape(str(inv.get('name', 'Unknown')))
     now_str = datetime.now().isoformat()
@@ -84,11 +86,11 @@ th {{ background: #e9ecef; }}
     <div class="card-label">Total Events</div>
   </div>
   <div class="card">
-    <div class="card-value">{len(all_iocs)}</div>
+    <div class="card-value">{ioc_totals['total']}</div>
     <div class="card-label">IOCs Found</div>
   </div>
   <div class="card">
-    <div class="card-value">{len(sigma_alerts)}</div>
+    <div class="card-value">{sigma_match_total}</div>
     <div class="card-label">Sigma Alerts</div>
   </div>
   <div class="card">
@@ -139,7 +141,7 @@ th {{ background: #e9ecef; }}
         safe_ch = escape(str(ch))
         html += f"<tr><td>{safe_ch}</td></tr>\n"
 
-    html += """</table>
+    html += f"""</table>
 </div>
 
 <div class="section">

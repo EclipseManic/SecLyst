@@ -50,9 +50,9 @@ export const TOUR_SLIDES = [
   },
   {
     step: 2,
-    title: 'Start in the Command Center',
+    title: 'Start on the Dashboard',
     badge: 'Morning briefing',
-    body: 'The Command Center is the one screen that spans all five tools: posture per tool, the findings that need triage, indicators several tools have seen, and one activity timeline. It is where a shift starts, not a replacement for the tools.'
+    body: 'The Dashboard explains every specialist tool, shows how they fit together, and ends with one launcher for your objective, evidence, and selected analysis workspace.'
   },
   {
     step: 3,
@@ -125,11 +125,11 @@ export const FirstRunTourModal: React.FC<{
                 type="button"
                 onClick={() => {
                   onClose();
-                  onNavigate('dashboard');
+                  onNavigate('home');
                 }}
                 className="ui-btn ui-btn--primary ui-btn--sm"
               >
-                Open Command Center
+                Open Dashboard
               </button>
             )}
           </div>
@@ -351,6 +351,9 @@ export const LandingPage: React.FC<{
   clipboardCount: number;
 }> = ({ onNavigate, onOpenTour, onQuickIocLookup, onOpenSettings, activityFeed, clipboardCount }) => {
   const [quickIocInput, setQuickIocInput] = useState('');
+  const [objective, setObjective] = useState('');
+  const [selectedTool, setSelectedTool] = useState<ToolId>('ioc');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const pageRef = useRef<HTMLDivElement>(null);
   useReveal();
 
@@ -389,7 +392,7 @@ export const LandingPage: React.FC<{
 
         <div className="ov-hero-main">
           <div className="sc-crumbs">
-            Seclyst <span className="sc-crumbs-sep">/</span> Overview
+            Seclyst <span className="sc-crumbs-sep">/</span> Dashboard
           </div>
           <h1 className="ov-hero-title" id="ov-hero-title">
             Five security tools. One shared thread.
@@ -401,9 +404,9 @@ export const LandingPage: React.FC<{
             <button
               type="button"
               className="ui-btn ui-btn--primary"
-              onClick={() => onNavigate('dashboard')}
+              onClick={() => document.getElementById('analysis-launcher')?.scrollIntoView({ behavior: 'smooth' })}
             >
-              Open Command Center
+              Start an analysis
             </button>
             <button type="button" className="ui-btn ui-btn--ghost" onClick={onOpenTour}>
               How this works
@@ -431,7 +434,7 @@ export const LandingPage: React.FC<{
                 <span className="ov-shot-dot" />
                 <span className="ov-shot-dot" />
               </span>
-              <span className="ov-shot-title">Command Center</span>
+              <span className="ov-shot-title">SecLyst workspace</span>
               <span className="ov-shot-tag">{capabilityCount} capabilities</span>
             </div>
             <div className="ov-shot-body">
@@ -601,7 +604,7 @@ export const LandingPage: React.FC<{
       {/* ================================================================= */}
       {/* LOOKUP + ACTIVITY — the two things you actually do from here       */}
       {/* ================================================================= */}
-      <div className="ov-actions" data-reveal>
+      <div className="ov-actions" hidden>
         <section className="ov-lookup" aria-labelledby="ov-lookup-title">
           <div className="ui-card-head">
             <div>
@@ -647,12 +650,12 @@ export const LandingPage: React.FC<{
               <h2 className="ui-card-title" id="ov-activity-title">
                 Recent activity
               </h2>
-              <div className="ui-card-sub">The same feed the rail and the Command Center show</div>
+              <div className="ui-card-sub">Recent work from the specialist tools</div>
             </div>
             <button
               type="button"
               className="ui-btn ui-btn--quiet ui-btn--sm"
-              onClick={() => onNavigate('dashboard')}
+              onClick={() => onNavigate('home')}
             >
               Open timeline
             </button>
@@ -697,13 +700,48 @@ export const LandingPage: React.FC<{
         </section>
       </div>
 
+      <section className="ov-block ui-card ui-card-pad" id="analysis-launcher" data-reveal aria-labelledby="analysis-launcher-title">
+        <div className="ov-block-head">
+          <div>
+            <h2 className="ov-block-title" id="analysis-launcher-title">What do you want to analyze?</h2>
+            <p className="ov-block-sub">Describe the objective, choose evidence, and open the specialist workspace that should handle it.</p>
+          </div>
+        </div>
+        <div className="space-y-4 mt-5">
+          <textarea className="ui-input" rows={4} value={objective} onChange={(event) => setObjective(event.target.value)} placeholder="Example: determine whether this email is malicious and inspect its attachments" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="ui-well ui-card-pad cursor-pointer">
+              <span className="ui-strong block">Select files</span>
+              <span className="ui-meta block mt-1">Choose one or more evidence files</span>
+              <input className="mt-3" type="file" multiple onChange={(event) => setSelectedFiles(Array.from(event.target.files || []))} />
+            </label>
+            <label className="ui-well ui-card-pad cursor-pointer">
+              <span className="ui-strong block">Select a folder</span>
+              <span className="ui-meta block mt-1">Choose a folder containing related evidence</span>
+              <input className="mt-3" type="file" multiple {...({ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>)} onChange={(event) => setSelectedFiles(Array.from(event.target.files || []))} />
+            </label>
+          </div>
+          {selectedFiles.length > 0 && <p className="ui-meta">{selectedFiles.length} item{selectedFiles.length === 1 ? '' : 's'} selected</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+            {tools.map((tool) => <button key={tool.id} type="button" className="ui-choice" aria-pressed={selectedTool === tool.id} onClick={() => setSelectedTool(tool.id)}><span className="ui-strong block">{tool.shortName}</span><span className="ui-meta block mt-1">{tool.tagline}</span></button>)}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="ui-btn ui-btn--primary" disabled={!objective.trim()} onClick={() => {
+              if (selectedTool === 'ioc' && selectedFiles.length === 0) onQuickIocLookup(objective.trim());
+              else onNavigate(selectedTool);
+            }}>Open {TOOLS_REGISTRY[selectedTool].shortName} and start</button>
+            <span className="ui-meta">Selected files remain local. The specialist tool opens with its original workflow.</span>
+          </div>
+        </div>
+      </section>
+
       {/* ================================================================= */}
       {/* SHORTCUTS — one quiet line, not a card of its own                  */}
       {/* ================================================================= */}
       <section className="ov-shortcuts" data-reveal aria-label="Keyboard shortcuts">
         <h2 className="ov-shortcuts-label">Shortcuts</h2>
         <span className="ov-shortcut">
-          <Kbd>0</Kbd> Overview
+          <Kbd>0</Kbd> Dashboard
         </span>
         <span className="ov-shortcut">
           <Kbd>1</Kbd> to <Kbd>5</Kbd> Tools

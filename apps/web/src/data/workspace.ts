@@ -2,7 +2,7 @@
 // shared workspace types and tool registry
 // ==========================================================================
 export type ToolId = 'ioc' | 'malware' | 'phishing' | 'events' | 'ruleforge';
-export type PageRouteId = 'home' | 'dashboard' | 'detections' | 'settings' | ToolId;
+export type PageRouteId = 'home' | 'settings' | ToolId;
 export type VerdictType = 'clean' | 'suspicious' | 'malicious' | 'info' | 'unknown';
 
 export interface IOCClipboardItem {
