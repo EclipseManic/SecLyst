@@ -11,7 +11,7 @@ import { BrandShieldIcon, ShellIcon, ToolIcon } from './lib/icons';
 import { ToolDock } from './features/tools/ToolDock';
 import type { ToolBridgeMessage } from './features/tools/frame-protocol';
 import { activateToolSession, createToolSessions, updateToolSessionQuery } from './features/tools/tool-session-store';
-import { FirstRunTourModal, LandingPage } from './pages/Landing';
+import { Dashboard } from './pages/Dashboard';
 import { ActivityPage } from './pages/Activity';
 import { SettingsPage } from './pages/SettingsLive';
 // Each tool screen is that tool's own interface, hosted rather than redrawn.
@@ -75,7 +75,6 @@ export default function App() {
   const [commandQuery, setCommandQuery] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [tourOpen, setTourOpen] = useState(false);
 
   // Shell preferences
   const theme = 'dark' as const;
@@ -266,7 +265,6 @@ if (e.key === 'Escape') {
         setCommandPaletteOpen(false);
         setNotificationsOpen(false);
         setUserMenuOpen(false);
-        setTourOpen(false);
         return;
       }
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -341,8 +339,7 @@ if (e.key === 'Escape') {
       { category: 'Actions', label: 'Upload an EVTX log', hotkey: '', action: () => navigateTo('events', 'investigation', 'events') },
       { category: 'Actions', label: 'Analyze a phishing email', hotkey: '', action: () => navigateTo('phishing', 'analysis', 'dashboard') },
       { category: 'Navigation', label: 'Activity', hotkey: '', action: () => navigateTo('activity') },
-      { category: 'Settings', label: 'Backend connections', hotkey: '', action: () => navigateTo('settings') },
-      { category: 'Settings', label: 'How this works', hotkey: '', action: () => setTourOpen(true) }
+      { category: 'Settings', label: 'Backend connections', hotkey: '', action: () => navigateTo('settings') }
     ];
     if (!commandQuery.trim()) return list;
     return list.filter((i) => `${i.category} ${i.label}`.toLowerCase().includes(commandQuery.toLowerCase()));
@@ -456,65 +453,6 @@ const userInitials = userName
             </span>
           </button>
 
-          {/* activity */}
-          <div className="sc-rail-pop-wrap">
-            <button
-              type="button"
-              className="sc-nav-item"
-              onClick={() => navigateTo('activity')}
-              title="Activity"
-            >
-              <span className="sc-nav-icon" aria-hidden="true">
-                <ShellIcon name="activity" size={17} />
-              </span>
-              <span className="sc-nav-label">Activity</span>
-              {unreadCount > 0 && <span className="sc-rail-count">{unreadCount}</span>}
-            </button>
-
-            {notificationsOpen && (
-              <div className="sc-pop" role="dialog" aria-label="Activity">
-                <div className="sc-pop-head">
-                  <span className="sc-pop-title">Activity</span>
-                  <button
-                    type="button"
-                    className="ui-btn ui-btn--quiet ui-btn--sm"
-                    onClick={() => setActivityFeed(activityFeed.map((a) => ({ ...a, unread: false })))}
-                  >
-                    Mark all read
-                  </button>
-                </div>
-                <div className="sc-pop-body">
-                  {activityFeed.length === 0 ? (
-                    <div className="ui-empty">
-                      <span className="ui-body">Nothing has run yet.</span>
-                    </div>
-                  ) : (
-                    activityFeed.map((act) => {
-                      const td = TOOLS_REGISTRY[act.tool];
-                      return (
-                        <button
-                          key={act.id}
-                          type="button"
-                          className="sc-feed-row"
-                          onClick={() => navigateTo(act.tool, td.mainTabs[1].id, act.targetSubTab || td.subTabs[0].id)}
-                        >
-                          <span className="sc-feed-dot" data-unread={act.unread ? 'true' : 'false'} />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-baseline justify-between gap-2">
-                              <span className="ui-h3">{td.shortName}</span>
-                              <span className="ui-meta sc-mono shrink-0">{act.timestamp}</span>
-                            </span>
-                            <span className="ui-body block mt-0.5">{act.description}</span>
-                          </span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* account */}
           <div className="sc-rail-pop-wrap">
             <button
@@ -616,13 +554,11 @@ const userInitials = userName
         >
           {page === 'home' && (
             <div className="sc-scroll">
-              <LandingPage
-                onNavigate={navigateTo}
-                onOpenSettings={() => navigateTo('settings')}
-                onOpenTour={() => setTourOpen(true)}
-                activityFeed={activityFeed}
-                clipboardCount={iocClipboard.length}
-                onQuickIocLookup={(ioc) => {
+              <Dashboard
+                backendStatus={backendStatus}
+                activityCount={activityFeed.length}
+                onOpenTool={(tool) => navigateTo(tool)}
+                onQuickIoc={(ioc) => {
                   setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(ioc)}`);
                   navigateTo('ioc', 'lookup', 'lookup');
                 }}
@@ -918,8 +854,6 @@ const userInitials = userName
         </div>
       )}
 
-      {/* FIRST-RUN TOUR */}
-      <FirstRunTourModal open={tourOpen} onClose={() => setTourOpen(false)} onNavigate={navigateTo} />
     </div>
   );
 }
