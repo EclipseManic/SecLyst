@@ -1,4 +1,5 @@
 import asyncio
+import math
 import random
 import time
 from contextlib import asynccontextmanager
@@ -413,7 +414,10 @@ return 1
         reason = "provider_retry_after" if schedule.blocked_until > now else "rate_limited"
         interval = max(0.0, float(minimum_interval or 0.0))
         if interval and schedule.last_slot != float("-inf"):
-            earliest = max(earliest, schedule.last_slot + interval)
+            interval_slot = schedule.last_slot + interval
+            if interval_slot - schedule.last_slot < interval:
+                interval_slot = math.nextafter(interval_slot, math.inf)
+            earliest = max(earliest, interval_slot)
         if schedule.minute:
             # FIFO: never jump ahead of an existing reservation.
             earliest = max(earliest, schedule.minute[-1])
