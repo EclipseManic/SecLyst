@@ -68,7 +68,7 @@ def test_phishing_analysis_publishes_durable_job(tmp_path, monkeypatch) -> None:
                 "http://127.0.0.1:7924/api/analyze",
                 files={"email_file": ("sample.eml", SAMPLE_EMAIL, "message/rfc822")},
                 data={"external_enrichment": "false", "resolve_redirects": "false"},
-                headers={"X-Requested-With": "XMLHttpRequest"},
+                headers={"X-Requested-With": "XMLHttpRequest", "X-SecLyst-Access": supervisor.browser_access_token},
             )
             submitted.raise_for_status()
             payload = submitted.json()
