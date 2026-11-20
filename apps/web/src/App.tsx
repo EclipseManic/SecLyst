@@ -556,7 +556,7 @@ const userInitials = userName
             <div className="sc-scroll">
               <Dashboard
                 backendStatus={backendStatus}
-                activityCount={activityFeed.length}
+                activity={activityFeed}
                 onOpenTool={(tool) => navigateTo(tool)}
                 onQuickIoc={(ioc) => {
                   setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(ioc)}`);

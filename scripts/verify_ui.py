@@ -74,16 +74,20 @@ def main() -> int:
         driver = webdriver.Chrome(options=options)
         wait = WebDriverWait(driver, 25)
 
-        for route, expected in (("#/", "Investigate with context"), ("#/activity", "Your analysis timeline"), ("#/settings", "Settings")):
+        for route, expected in (("#/", "Security operations"), ("#/activity", "Your analysis timeline"), ("#/settings", "Settings")):
             driver.get(base_url + route)
             wait.until(lambda browser: expected in browser.find_element(By.TAG_NAME, "body").text)
             print(f"shell {route}: ok")
 
         driver.get(base_url + "#/")
-        dashboard_order = driver.execute_script("const consoleSection=document.querySelector('.premium-console'); const ruleforge=document.querySelector('.premium-ruleforge'); return Boolean(consoleSection && ruleforge && (ruleforge.compareDocumentPosition(consoleSection) & Node.DOCUMENT_POSITION_FOLLOWING));")
+        dashboard_order = driver.execute_script("const consoleSection=document.querySelector('.ops-intake'); const ruleforge=document.querySelector('.ops-ruleforge'); return Boolean(consoleSection && ruleforge && (ruleforge.compareDocumentPosition(consoleSection) & Node.DOCUMENT_POSITION_FOLLOWING));")
         if not dashboard_order:
             raise RuntimeError("Dashboard analysis console is not the final section.")
         print("dashboard hierarchy: analysis console is the final section")
+        shell_scroll = driver.execute_script("const panel=document.querySelector('.sc-scroll'); panel.scrollTop=600; return {body:window.scrollY, panel:panel.scrollTop, rail:document.querySelector('.sc-rail').getBoundingClientRect().top};")
+        if shell_scroll["body"] != 0 or shell_scroll["panel"] <= 0 or shell_scroll["rail"] != 0:
+            raise RuntimeError(f"Sidebar and content scrolling are not isolated: {shell_scroll}")
+        print("shell layout: sidebar remains fixed while content scrolls independently")
 
         for tool in TOOLS:
             driver.get(base_url + f"#/t/{tool}")
