@@ -5,11 +5,12 @@ import { ToolIcon } from '../lib/icons';
 
 const ANALYSIS_TOOLS: ToolId[] = ['ioc', 'malware', 'phishing', 'events'];
 
-export function Dashboard({ backendStatus, activity, onOpenTool, onQuickIoc }: {
+export function Dashboard({ backendStatus, activity, onOpenTool, onQuickIoc, onOpenActivity }: {
   backendStatus: Record<ToolId, 'online' | 'offline' | 'unknown'>;
   activity: ActivityItem[];
   onOpenTool: (tool: ToolId) => void;
   onQuickIoc: (value: string) => void;
+  onOpenActivity: () => void;
 }) {
   const [objective, setObjective] = useState('');
   const [selectedTool, setSelectedTool] = useState<ToolId>('ioc');
@@ -22,16 +23,12 @@ export function Dashboard({ backendStatus, activity, onOpenTool, onQuickIoc }: {
   const start = () => selectedTool === 'ioc' && files.length === 0 ? onQuickIoc(objective.trim()) : onOpenTool(selectedTool);
 
   return <div className="ops-dashboard">
-    <header className="ops-head">
-      <div><span className="ops-eyebrow">Workspace overview</span><h1>Security operations, without the tool switching tax.</h1><p>Monitor current work, resume recent investigations, and move into the right specialist with context intact.</p></div>
-      <div className="ops-health"><span data-state={online === 5 ? 'healthy' : 'degraded'} /><div><strong>{online === 5 ? 'All systems operational' : `${online} of 5 engines available`}</strong><small>Local SecLyst runtime</small></div></div>
-    </header>
-
-    <section className="ops-grid" aria-label="Workspace status">
-      <article className="ops-card ops-card--posture"><div className="ops-card-head"><div><span className="ops-label">System posture</span><h2>{online}/5 engines ready</h2></div><span className="ops-state">Live</span></div><div className="ops-engine-list">{tools.map((tool)=><button key={tool.id} onClick={()=>onOpenTool(tool.id)}><ToolIcon tool={tool.id} size={17}/><span>{tool.shortName}</span><i data-state={backendStatus[tool.id]}/></button>)}</div></article>
-      <article className="ops-card"><div className="ops-card-head"><div><span className="ops-label">Active queue</span><h2>{activeJobs.length} in progress</h2></div></div>{activeJobs.length?<div className="ops-mini-list">{activeJobs.slice(0,4).map((job)=><div key={job.id}><span>{job.tool} · {job.operation}</span><b>{job.progress}%</b><progress max="100" value={job.progress}/></div>)}</div>:<div className="ops-empty"><strong>Queue is clear</strong><span>New background work will appear here.</span></div>}</article>
-      <article className="ops-card ops-card--recent"><div className="ops-card-head"><div><span className="ops-label">Recent work</span><h2>{activity.length} stored records</h2></div></div>{activity.length?<div className="ops-recent-list">{activity.slice(0,5).map((item)=><button key={item.id} onClick={()=>onOpenTool(item.tool)}><ToolIcon tool={item.tool} size={15}/><span><strong>{item.actionType}</strong><small>{item.description}</small></span><time>{item.timestamp}</time></button>)}</div>:<div className="ops-empty"><strong>No recent work</strong><span>Completed tool activity will collect here.</span></div>}</article>
+    <section className="ops-tool-hero">
+      <div className="ops-tool-hero-copy"><span className="ops-hero-pill"><i/>Unified security operations platform</span><h1>Analyze. Correlate. <em>Defend.</em></h1><p>Bring five specialist security tools into one local workspace without losing their original workflows, live progress, or investigative context.</p><div className="ops-hero-actions"><button onClick={()=>document.getElementById('ops-intake')?.scrollIntoView({behavior:'smooth'})}>Start an analysis</button><button onClick={onOpenActivity}>View activity</button></div><div className="ops-hero-signals"><span><i/>Local-first</span><span><i/>Shared provider controls</span><span><i/>Durable background jobs</span></div></div>
+      <div className="ops-terminal"><header><span className="ops-window-dots"><i/><i/><i/></span><b>seclyst_workspace.json</b><small data-state={online===5?'healthy':'degraded'}>{online===5?'LIVE':'DEGRADED'}</small></header><div className="ops-terminal-body"><p><span>"workspace"</span>: <b>"SecLyst"</b>,</p><p><span>"engines_online"</span>: <strong>{online}</strong> / 5,</p><p><span>"active_jobs"</span>: <strong>{activeJobs.length}</strong>,</p><p><span>"recent_records"</span>: <strong>{activity.length}</strong>,</p><p><span>"latest_activity"</span>: <b>"{activity[0]?.actionType || 'waiting for analysis'}"</b>,</p><p><span>"data_boundary"</span>: <b>"loopback isolated"</b></p><i className="ops-terminal-cursor"/></div><footer><span>✓ tools supervised</span><span>✓ credentials brokered</span><span>✓ sessions retained</span></footer></div>
     </section>
+
+    <section className="ops-metric-strip" aria-label="Workspace status"><div><strong>5</strong><span>Specialist tools</span></div><div><strong>{online}/5</strong><span>Engines online</span></div><div><strong>{activeJobs.length}</strong><span>Active jobs</span></div><div><strong>{activity.length}</strong><span>Recent records</span></div><div><strong>LOCAL</strong><span>Data boundary</span></div></section>
 
     <section className="ops-section"><div className="ops-section-head"><div><span className="ops-eyebrow">Specialist workspaces</span><h2>Choose the depth you need.</h2></div><p>Every tool keeps its original workflow while SecLyst preserves navigation, background activity, shared providers, and secure local access.</p></div><div className="ops-tool-grid">{tools.map((tool)=><button key={tool.id} data-tool={tool.id} onClick={()=>onOpenTool(tool.id)}><span className="ops-tool-icon"><ToolIcon tool={tool.id} size={20}/></span><span><strong>{tool.name}</strong><small>{tool.tagline}</small></span><b>Open workspace</b></button>)}</div></section>
 

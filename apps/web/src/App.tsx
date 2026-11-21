@@ -562,6 +562,7 @@ const userInitials = userName
                   setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(ioc)}`);
                   navigateTo('ioc', 'lookup', 'lookup');
                 }}
+                onOpenActivity={() => navigateTo('activity')}
               />
             </div>
           )}
