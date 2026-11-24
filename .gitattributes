@@ -13,3 +13,9 @@
 *.jpeg binary
 *.gif binary
 *.ico binary
+
+# Bundled detection rule packs are reference data, not SecLyst source.
+# Left in place they made the repo read as a YARA project.
+engines/**/rules/** linguist-vendored
+engines/**/*.yar linguist-vendored
+engines/**/*.yara linguist-vendored
