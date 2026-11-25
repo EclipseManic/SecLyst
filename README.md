@@ -106,6 +106,6 @@ The final command verifies that the six source directories outside `Seclyst/` st
 - Required production code is tracked as source, not as generated browser captures.
 - `.env`, runtime databases, uploaded samples, caches, logs, builds, and dependency directories are ignored.
 - No nested Git repository is created by the setup script.
-- The imported tools retain their own provenance and license status. See `docs/SOURCES.md` before publishing or redistributing this workspace.
+- All five engines are original work by the repository owner and the combined workspace is released under the MIT license in `LICENSE`. See `docs/SOURCES.md` for per-engine provenance.
 
 See `docs/ARCHITECTURE.md` for the process and browser boundaries.

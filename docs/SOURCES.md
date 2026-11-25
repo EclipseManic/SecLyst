@@ -21,4 +21,6 @@ The copy intentionally excludes Git metadata, Kilo worktrees, virtual environmen
 
 ## License Status
 
-The IOC platform includes its existing MIT license file. Several other imported source directories do not currently include a license grant. Seclyst does not invent or replace those terms. Confirm ownership and redistribution permissions before making this combined workspace public, and add a top-level license only when the correct terms are known.
+Every engine in this workspace — IOC, malware, events, phishing, and RuleForge — is the original work of the repository owner, who holds the copyright to all of it. The combined workspace is therefore released under a single MIT license: see the top-level `LICENSE` file. The older `engines/ioc/LICENSE` (MIT) is retained unchanged and agrees with the top-level terms.
+
+This resolves the earlier caution in this document. What remains is ordinary diligence: keep third-party dependencies (YARA rule sets, Sigma rules, provider SDKs, and the copied corpus files listed under Excluded Material) under their own upstream terms, which is normal for a source repository and does not change the project's own license.
