@@ -496,6 +496,7 @@ def main(argv: list[str] | None = None) -> int:
     from uvicorn import Config, Server
 
     from .app import create_app
+    from .auth import AuthService
     from .config import Settings
     from .database.migrations import upgrade_database
     from .database.session import Database
@@ -504,6 +505,11 @@ def main(argv: list[str] | None = None) -> int:
 
     settings = Settings.from_environment()
     os.environ["SECLYST_SETTINGS_PATH"] = str(settings.runtime_dir / "settings.json")
+    auth = AuthService(
+        settings.runtime_dir,
+        enabled=settings.auth_enabled,
+        session_ttl_seconds=settings.session_ttl_seconds,
+    )
     upgrade_database(settings.database_path)
     database = Database(settings.database_path)
     job_service = JobService(database, lease_seconds=settings.job_lease_seconds)
@@ -539,10 +545,16 @@ def main(argv: list[str] | None = None) -> int:
         provider_broker=provider_broker,
         artifact_store=artifact_store,
         runtime_dir=settings.runtime_dir,
+        auth=auth,
     )
     url = f"http://{args.host}:{args.port}/"
 
     print(f"Seclyst {__version__} is available at {url}")
+    if auth.enabled:
+        state = "password is set" if auth.configured else "first run, set a password in the browser"
+        print(f"  {'Authentication':<20} enabled ({state})")
+    else:
+        print(f"  {'Authentication':<20} disabled (SECLYST_AUTH=false)")
     for tool in supervisor.tools.values():
         detail = tool.start_error or tool.url
         print(f"  {tool.spec.name:<20} {detail}")

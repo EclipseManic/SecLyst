@@ -6,13 +6,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TOOLS_REGISTRY } from './data/workspace';
 import type { ActivityItem, IOCClipboardItem, PageRouteId, ToastMessage, ToolDefinition, ToolId } from './data/workspace';
 import { apiClient, copyTextToClipboard, safeLocalGet, safeLocalSet, safeSessionGet, safeSessionSet, summaryToActivity } from './lib/api-client';
-import type { PlatformSummary } from './lib/api-client';
+import type { AuthStatus, PlatformSummary } from './lib/api-client';
 import { BrandShieldIcon, ShellIcon, ToolIcon } from './lib/icons';
 import { ToolDock } from './features/tools/ToolDock';
 import type { ToolBridgeMessage } from './features/tools/frame-protocol';
 import { activateToolSession, createToolSessions, updateToolSessionQuery } from './features/tools/tool-session-store';
 import { Dashboard } from './pages/Dashboard';
 import { ActivityPage } from './pages/Activity';
+import { Login } from './pages/Login';
 import { SettingsPage } from './pages/SettingsLive';
 // Each tool screen is that tool's own interface, hosted rather than redrawn.
 import { ToolFrame } from './ui/ToolFrame';
@@ -83,6 +84,37 @@ export default function App() {
   const [reduceMotion, setReduceMotion] = useState<boolean>(() => safeLocalGet('seclyst.reduceMotion', false));
   const userName = 'Local Analyst';
 
+  // Authentication gate. The control plane may require a password. Until its
+  // status is known the shell does not start polling, so it never paints an
+  // "offline" workspace behind a login screen.
+  const [authState, setAuthState] = useState<AuthStatus | null>(null);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [nextPassword, setNextPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .authStatus()
+      .then((status) => {
+        if (!cancelled) setAuthState(status);
+      })
+      .catch(() => {
+        // An unreachable status endpoint must not lock the user out: treat it as
+        // an ungated local session and let the normal platform checks report it.
+        if (!cancelled) setAuthState({ required: false, configured: true, authenticated: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const authReady = authState !== null;
+  const needsAuth = !!authState && authState.required && !authState.authenticated;
+
   // Activity Feed, Toasts & Backend Health
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -149,10 +181,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authReady || needsAuth) return;
     void refreshPlatform();
     const timer = window.setInterval(() => void refreshPlatform(), 10000);
     return () => window.clearInterval(timer);
-  }, [refreshPlatform]);
+  }, [authReady, needsAuth, refreshPlatform]);
 
   // Persist navigation & active tool IDs to sessionStorage (Bug #4 Fix)
   useEffect(() => {
@@ -367,6 +400,23 @@ const userInitials = userName
       .map((category) => ({ category, items: buckets.get(category) ?? [] }));
   }, [commandItems]);
 
+  if (!authReady) {
+    return (
+      <div className="auth-boot" role="status" aria-live="polite">
+        <BrandShieldIcon size={24} />
+        <span className="ui-meta">Starting Seclyst…</span>
+      </div>
+    );
+  }
+  if (needsAuth) {
+    return (
+      <Login
+        mode={authState?.configured ? 'login' : 'setup'}
+        onAuthenticated={(status) => setAuthState(status)}
+      />
+    );
+  }
+
   return (
     <div
       className="sc-root sc-app"
@@ -475,22 +525,53 @@ const userInitials = userName
                 <div className="sc-pop-head">
                   <div>
                     <div className="sc-pop-title">{userName}</div>
-                    <div className="ui-meta">This session, not authenticated</div>
+                    <div className="ui-meta">
+                      {authState?.required ? 'Signed in to this local workspace' : 'Local session, authentication off'}
+                    </div>
                   </div>
                 </div>
                 <div className="sc-pop-body">
-                  <p className="ui-body" style={{ padding: '6px 10px' }}>
-                    Seclyst is running as a loopback-only local workbench. No authentication or role guard is simulated.
-                  </p>
+                  {authState?.required && (
+                    <button
+                      type="button"
+                      className="sc-pop-row"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setPasswordError('');
+                        setCurrentPassword('');
+                        setNextPassword('');
+                        setConfirmPassword('');
+                        setChangePasswordOpen(true);
+                      }}
+                    >
+                      <span className="ui-body">Change password</span>
+                    </button>
+                  )}
+                  <button type="button" className="sc-pop-row" onClick={() => navigateTo('settings')}>
+                    <span className="ui-body">Settings</span>
+                  </button>
                 </div>
                 <div className="sc-pop-foot">
-                  <button
-                    type="button"
-                    className="ui-btn ui-btn--quiet ui-btn--sm"
-                    onClick={() => navigateTo('settings')}
-                  >
-                    Settings
-                  </button>
+                  <span className="ui-meta">
+                    {authState?.required ? 'A restart signs this session out' : 'No password required'}
+                  </span>
+                  {authState?.required && (
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn--quiet ui-btn--sm"
+                      onClick={async () => {
+                        setUserMenuOpen(false);
+                        try {
+                          const status = await apiClient.authLogout();
+                          setAuthState(status);
+                        } catch {
+                          setAuthState({ required: true, configured: true, authenticated: false });
+                        }
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -557,6 +638,7 @@ const userInitials = userName
               <Dashboard
                 backendStatus={backendStatus}
                 activity={activityFeed}
+                summary={platformSummary}
                 onOpenTool={(tool) => navigateTo(tool)}
                 onQuickIoc={(ioc) => {
                   setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(ioc)}`);
@@ -854,6 +936,84 @@ const userInitials = userName
           </div>
         </div>
       )}
+
+      {/* =================================================================== */}
+      {/* CHANGE PASSWORD                                                     */}
+      {/* =================================================================== */}
+      <Modal
+        open={changePasswordOpen}
+        title="Change password"
+        subtitle="Enter the current password, then the new one."
+        onClose={() => setChangePasswordOpen(false)}
+        maxWidth="max-w-md"
+      >
+        <form
+          className="auth-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (passwordBusy) return;
+            setPasswordError('');
+            if (nextPassword.length < 12) {
+              setPasswordError('Choose a password of at least 12 characters.');
+              return;
+            }
+            if (nextPassword !== confirmPassword) {
+              setPasswordError('The two entries do not match.');
+              return;
+            }
+            setPasswordBusy(true);
+            try {
+              const status = await apiClient.authChangePassword(currentPassword, nextPassword);
+              setAuthState(status);
+              setChangePasswordOpen(false);
+              addToast({ type: 'success', title: 'Password changed', description: 'Your session was reissued.' });
+            } catch (err) {
+              setPasswordError(err instanceof Error ? err.message : 'Could not change the password.');
+            } finally {
+              setPasswordBusy(false);
+            }
+          }}
+        >
+          <label className="auth-field">
+            <span className="ui-label">Current password</span>
+            <input
+              type="password"
+              className="ui-input"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+            />
+          </label>
+          <label className="auth-field">
+            <span className="ui-label">New password</span>
+            <input
+              type="password"
+              className="ui-input"
+              autoComplete="new-password"
+              value={nextPassword}
+              onChange={(event) => setNextPassword(event.target.value)}
+            />
+          </label>
+          <label className="auth-field">
+            <span className="ui-label">Confirm new password</span>
+            <input
+              type="password"
+              className="ui-input"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+          </label>
+          {passwordError && (
+            <p className="auth-error" role="alert">
+              {passwordError}
+            </p>
+          )}
+          <button type="submit" className="ui-btn ui-btn--primary" disabled={passwordBusy}>
+            {passwordBusy ? 'Saving…' : 'Change password'}
+          </button>
+        </form>
+      </Modal>
 
     </div>
   );

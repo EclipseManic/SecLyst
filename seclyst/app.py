@@ -10,12 +10,19 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import __version__
+from .api.auth import router as auth_router
 from .api.jobs import router as jobs_router
 from .api.internal import router as internal_router
 from .api.artifacts import router as artifacts_router
 from .api.runs import router as runs_router
 from .api.settings import router as settings_router
+from .auth import SESSION_COOKIE, AuthService
 from .jobs.service import JobService
+
+# Reachable without a session: the auth endpoints themselves (so a browser can
+# sign in) and the liveness probe. Every other /api/ path is gated when auth is
+# enabled.
+_AUTH_PUBLIC_PREFIX = "/api/v1/auth/"
 
 
 def create_app(
@@ -28,6 +35,7 @@ def create_app(
     provider_broker: Any = None,
     artifact_store: Any = None,
     runtime_dir: Path | None = None,
+    auth: AuthService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="SecLyst Control Plane", version=__version__, docs_url="/api/docs", redoc_url=None)
     app.state.supervisor = supervisor
@@ -38,6 +46,8 @@ def create_app(
     app.state.provider_broker = provider_broker
     app.state.artifact_store = artifact_store
     app.state.runtime_dir = (runtime_dir or web_root.parent).resolve()
+    app.state.auth = auth
+    app.include_router(auth_router)
     app.include_router(jobs_router)
     app.include_router(internal_router)
     app.include_router(artifacts_router)
@@ -46,6 +56,16 @@ def create_app(
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
+        if auth is not None and auth.enabled:
+            path = request.url.path
+            is_public = path.startswith(_AUTH_PUBLIC_PREFIX) or path == "/api/v1/system/health"
+            if path.startswith("/api/") and not is_public:
+                if not auth.sessions.valid(request.cookies.get(SESSION_COOKIE)):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"error": {"code": "unauthenticated", "message": "Sign in to the local workspace."}},
+                        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+                    )
         response = await call_next(request)
         tools = supervisor.tools.values()
         frame_sources = " ".join(tool.url.rstrip("/") for tool in tools)

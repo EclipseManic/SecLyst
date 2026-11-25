@@ -1,41 +1,300 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TOOLS_REGISTRY } from '../data/workspace';
 import type { ActivityItem, ToolDefinition, ToolId } from '../data/workspace';
+import type { PlatformSummary } from '../lib/api-client';
 import { ToolIcon } from '../lib/icons';
 
 const ANALYSIS_TOOLS: ToolId[] = ['ioc', 'malware', 'phishing', 'events'];
 
-export function Dashboard({ backendStatus, activity, onOpenTool, onQuickIoc, onOpenActivity }: {
-  backendStatus: Record<ToolId, 'online' | 'offline' | 'unknown'>;
+const ACTIVE_JOB_STATUSES = ['queued', 'running', 'waiting_provider', 'waiting_rate_limit', 'retrying'];
+
+interface JobRow {
+  id: string;
+  tool: string;
+  operation: string;
+  status: string;
+  progress: number;
+  stage: string;
+}
+
+type EngineState = 'online' | 'offline' | 'unknown';
+type RegionState = 'loading' | 'ready' | 'unavailable' | 'error';
+
+function stateWord(state: EngineState): string {
+  if (state === 'online') return 'Online';
+  if (state === 'unknown') return 'Starting';
+  return 'Offline';
+}
+
+function jobState(status: string): EngineState {
+  if (status === 'running') return 'online';
+  if (status === 'failed' || status === 'cancelled') return 'offline';
+  return 'unknown';
+}
+
+function JobEmpty({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="cc-empty">
+      <strong>{title}</strong>
+      <span>{body}</span>
+    </div>
+  );
+}
+
+/* The command center is one working surface, not a landing page: a compact
+   intake bar, then the engine ledger — the object this workbench is known by —
+   then active work and recent activity side by side. Every figure comes from
+   the supervisor or the job queue, and every region has its own empty state. */
+export function Dashboard({
+  backendStatus,
+  activity,
+  summary,
+  onOpenTool,
+  onQuickIoc,
+  onOpenActivity
+}: {
+  backendStatus: Record<ToolId, EngineState>;
   activity: ActivityItem[];
+  summary: PlatformSummary | null;
   onOpenTool: (tool: ToolId) => void;
   onQuickIoc: (value: string) => void;
   onOpenActivity: () => void;
 }) {
   const [objective, setObjective] = useState('');
   const [selectedTool, setSelectedTool] = useState<ToolId>('ioc');
-  const [files, setFiles] = useState<File[]>([]);
-  const [jobs, setJobs] = useState<any[]>([]);
-  useEffect(() => { fetch('/api/v1/jobs?limit=50').then((response) => response.ok ? response.json() : []).then(setJobs).catch(() => setJobs([])); }, []);
-  const tools = Object.values(TOOLS_REGISTRY) as ToolDefinition[];
-  const online = Object.values(backendStatus).filter((status) => status === 'online').length;
-  const activeJobs = jobs.filter((job) => ['queued', 'running', 'waiting_provider', 'waiting_rate_limit'].includes(job.status));
-  const start = () => selectedTool === 'ioc' && files.length === 0 ? onQuickIoc(objective.trim()) : onOpenTool(selectedTool);
+  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [jobsState, setJobsState] = useState<RegionState>('loading');
+  const objectiveRef = useRef<HTMLTextAreaElement>(null);
 
-  return <div className="ops-dashboard">
-    <section className="ops-tool-hero">
-      <div className="ops-tool-hero-copy"><span className="ops-hero-pill"><i/>Unified security operations platform</span><h1>Analyze. Correlate. <em>Defend.</em></h1><p>Bring five specialist security tools into one local workspace without losing their original workflows, live progress, or investigative context.</p><div className="ops-hero-actions"><button onClick={()=>document.getElementById('ops-intake')?.scrollIntoView({behavior:'smooth'})}>Start an analysis</button><button onClick={onOpenActivity}>View activity</button></div><div className="ops-hero-signals"><span><i/>Local-first</span><span><i/>Shared provider controls</span><span><i/>Durable background jobs</span></div></div>
-      <div className="ops-terminal"><header><span className="ops-window-dots"><i/><i/><i/></span><b>seclyst_workspace.json</b><small data-state={online===5?'healthy':'degraded'}>{online===5?'LIVE':'DEGRADED'}</small></header><div className="ops-terminal-body"><p><span>"workspace"</span>: <b>"SecLyst"</b>,</p><p><span>"engines_online"</span>: <strong>{online}</strong> / 5,</p><p><span>"active_jobs"</span>: <strong>{activeJobs.length}</strong>,</p><p><span>"recent_records"</span>: <strong>{activity.length}</strong>,</p><p><span>"latest_activity"</span>: <b>"{activity[0]?.actionType || 'waiting for analysis'}"</b>,</p><p><span>"data_boundary"</span>: <b>"loopback isolated"</b></p><i className="ops-terminal-cursor"/></div><footer><span>✓ tools supervised</span><span>✓ credentials brokered</span><span>✓ sessions retained</span></footer></div>
-    </section>
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/v1/jobs?limit=50', { headers: { Accept: 'application/json' }, cache: 'no-store' })
+      .then(async (response) => {
+        if (cancelled) return;
+        if (response.status === 503) {
+          setJobsState('unavailable');
+          return;
+        }
+        if (!response.ok) {
+          setJobsState('error');
+          return;
+        }
+        const data: unknown = await response.json();
+        if (cancelled) return;
+        setJobs(Array.isArray(data) ? (data as JobRow[]) : []);
+        setJobsState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setJobsState('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    <section className="ops-metric-strip" aria-label="Workspace status"><div><strong>5</strong><span>Specialist tools</span></div><div><strong>{online}/5</strong><span>Engines online</span></div><div><strong>{activeJobs.length}</strong><span>Active jobs</span></div><div><strong>{activity.length}</strong><span>Recent records</span></div><div><strong>LOCAL</strong><span>Data boundary</span></div></section>
+  const tools = useMemo(() => Object.values(TOOLS_REGISTRY) as ToolDefinition[], []);
+  const online = tools.filter((tool) => backendStatus[tool.id] === 'online').length;
+  const activeJobs = jobs.filter((job) => ACTIVE_JOB_STATUSES.includes(job.status));
+  const counts = summary?.collections;
 
-    <section className="ops-section"><div className="ops-section-head"><div><span className="ops-eyebrow">Specialist workspaces</span><h2>Choose the depth you need.</h2></div><p>Every tool keeps its original workflow while SecLyst preserves navigation, background activity, shared providers, and secure local access.</p></div><div className="ops-tool-grid">{tools.map((tool)=><button key={tool.id} data-tool={tool.id} onClick={()=>onOpenTool(tool.id)}><span className="ops-tool-icon"><ToolIcon tool={tool.id} size={20}/></span><span><strong>{tool.name}</strong><small>{tool.tagline}</small></span><b>Open workspace</b></button>)}</div></section>
+  // An objective is only carried into IOC lookup, where it becomes the query.
+  // The other engines open at their own intake, so they need no text first.
+  const canStart = selectedTool === 'ioc' ? objective.trim().length > 0 : true;
 
-    <section className="ops-section"><div className="ops-section-head"><div><span className="ops-eyebrow">Common pathways</span><h2>Move from evidence to an answer.</h2></div></div><div className="ops-pathways"><button onClick={()=>{setSelectedTool('phishing');document.getElementById('ops-intake')?.scrollIntoView({behavior:'smooth'});}}><span>01</span><strong>Suspicious email</strong><small>Authenticate sender, inspect URLs and attachments, extract IOCs.</small></button><button onClick={()=>{setSelectedTool('malware');document.getElementById('ops-intake')?.scrollIntoView({behavior:'smooth'});}}><span>02</span><strong>Unknown file</strong><small>Run static analysis, YARA, threat intelligence, and artifact extraction.</small></button><button onClick={()=>{setSelectedTool('events');document.getElementById('ops-intake')?.scrollIntoView({behavior:'smooth'});}}><span>03</span><strong>Windows evidence</strong><small>Ingest EVTX, search activity, extract indicators, and hunt with Sigma.</small></button></div></section>
+  const start = () => {
+    if (selectedTool === 'ioc' && objective.trim()) {
+      onQuickIoc(objective.trim());
+      return;
+    }
+    onOpenTool(selectedTool);
+  };
 
-    <section className="ops-ruleforge"><div><span className="ops-eyebrow">Detection engineering</span><h2>Turn confirmed behavior into portable logic.</h2><p>Import, translate, validate, tune, and explain rules across RuleForge’s supported SIEM dialects.</p></div><button onClick={()=>onOpenTool('ruleforge')}>Open RuleForge</button></section>
+  return (
+    <div className="cc">
+      <header className="cc-head">
+        <div className="cc-head-main">
+          <h1 className="ui-h1">Command center</h1>
+          <p className="ui-body">
+            Start an analysis below, or open an engine from the ledger. Each engine keeps its own screens and
+            its own work.
+          </p>
+        </div>
+        <div className="cc-head-stat">
+          <span className="ui-label">Engines online</span>
+          <strong className="cc-readout sc-mono">
+            {online}
+            <span>/{tools.length}</span>
+          </strong>
+        </div>
+      </header>
 
-    <section className="ops-intake" id="ops-intake"><div className="ops-intake-head"><span className="ops-eyebrow">Start a new analysis</span><h2>What do you want to understand?</h2><p>State the decision you need to make, add local evidence, and select the specialist that should lead.</p></div><textarea value={objective} onChange={(event)=>setObjective(event.target.value)} rows={4} placeholder="Example: Determine whether this email is malicious, inspect every attachment, and enrich the extracted indicators."/><div className="ops-evidence"><label><strong>Select files</strong><span>Samples, emails, documents, or EVTX logs</span><input type="file" multiple onChange={(event)=>setFiles(Array.from(event.target.files||[]))}/></label><label><strong>Select a folder</strong><span>A related collection of evidence</span><input type="file" multiple {...({webkitdirectory:''} as React.InputHTMLAttributes<HTMLInputElement>)} onChange={(event)=>setFiles(Array.from(event.target.files||[]))}/></label></div>{files.length>0&&<p className="ops-file-count">{files.length} local item{files.length===1?'':'s'} selected</p>}<div className="ops-tool-select">{ANALYSIS_TOOLS.map((id)=>{const tool=TOOLS_REGISTRY[id];return <button key={id} aria-pressed={selectedTool===id} onClick={()=>setSelectedTool(id)}><ToolIcon tool={id} size={17}/><span><strong>{tool.shortName}</strong><small>{tool.tagline}</small></span></button>;})}</div><div className="ops-intake-foot"><button disabled={!objective.trim()} onClick={start}>Open {TOOLS_REGISTRY[selectedTool].shortName}</button><span>Evidence stays local and opens in the original specialist workflow.</span></div></section>
-  </div>;
+      <section className="cc-intake" aria-label="Start a new analysis">
+        <label className="cc-intake-field">
+          <span className="ui-label">Objective</span>
+          <textarea
+            ref={objectiveRef}
+            rows={2}
+            value={objective}
+            onChange={(event) => setObjective(event.target.value)}
+            placeholder="What do you need to determine? For example: is this email malicious, and which indicators does it carry?"
+          />
+        </label>
+
+        <div className="cc-intake-actions">
+          <button type="button" className="ui-btn ui-btn--primary" disabled={!canStart} onClick={start}>
+            {selectedTool === 'ioc' ? 'Look up' : 'Open engine'}
+          </button>
+        </div>
+
+        <div className="cc-intake-tools" role="group" aria-label="Leading engine">
+          {ANALYSIS_TOOLS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={selectedTool === id}
+              onClick={() => setSelectedTool(id)}
+            >
+              <ToolIcon tool={id} size={16} />
+              <span>{TOOLS_REGISTRY[id].shortName}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="cc-ledger" aria-label="Engines">
+        <div className="ui-section-head">
+          <h2 className="ui-h2">Engines</h2>
+          <span className="ui-meta">Live status from the local supervisor</span>
+        </div>
+
+        <div className="cc-table">
+          <div className="cc-table-head" aria-hidden="true">
+            <span>Engine</span>
+            <span>Status</span>
+            <span>Records</span>
+            <span>Latest activity</span>
+            <span />
+          </div>
+
+          {tools.map((tool) => {
+            const state = backendStatus[tool.id];
+            const count = counts?.[tool.id]?.count;
+            const latest = activity.find((item) => item.tool === tool.id);
+            return (
+              <button
+                key={tool.id}
+                type="button"
+                className="cc-row"
+                data-tool={tool.id}
+                aria-label={`Open ${tool.name}`}
+                onClick={() => onOpenTool(tool.id)}
+              >
+                <span className="cc-engine">
+                  <span className="cc-engine-mark">
+                    <ToolIcon tool={tool.id} size={15} />
+                  </span>
+                  <span className="cc-engine-copy">
+                    <strong>{tool.shortName}</strong>
+                    <small>{tool.tagline}</small>
+                  </span>
+                </span>
+                <span className="cc-state" data-state={state}>
+                  {stateWord(state)}
+                </span>
+                <span className="cc-num sc-mono">{typeof count === 'number' ? count : '—'}</span>
+                <span className="cc-latest">{latest ? latest.description : 'No stored records yet'}</span>
+                <span className="cc-open">Open</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="cc-split">
+        <div className="ui-card cc-queue">
+          <div className="ui-card-head">
+            <span className="ui-card-title">Active work</span>
+            <span className="ui-meta">
+              {jobsState === 'ready' ? `${activeJobs.length} running` : 'Durable job queue'}
+            </span>
+          </div>
+
+          {jobsState === 'loading' && (
+            <div className="cc-rows">
+              <span className="cc-skeleton" />
+              <span className="cc-skeleton" />
+            </div>
+          )}
+          {jobsState === 'unavailable' && (
+            <JobEmpty
+              title="Durable jobs are off"
+              body="Start with SECLYST_DURABLE_JOBS=true to record background work here."
+            />
+          )}
+          {jobsState === 'error' && (
+            <JobEmpty title="Queue unavailable" body="The control plane did not answer this request." />
+          )}
+          {jobsState === 'ready' &&
+            (activeJobs.length === 0 ? (
+              <JobEmpty
+                title="No active jobs"
+                body="Progress from malware, phishing, IOC, event and rule jobs appears here."
+              />
+            ) : (
+              <div className="cc-rows">
+                {activeJobs.slice(0, 8).map((job) => (
+                  <div key={job.id} className="cc-job">
+                    <span className="cc-job-tool sc-mono">{job.tool}</span>
+                    <span className="cc-job-op">
+                      {job.operation}
+                      <small>{job.stage}</small>
+                    </span>
+                    <span className="cc-state" data-state={jobState(job.status)}>
+                      {job.status.replace(/_/g, ' ')}
+                    </span>
+                    <span className="cc-num sc-mono">{job.progress}%</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+        </div>
+
+        <div className="ui-card cc-activity">
+          <div className="ui-card-head">
+            <span className="ui-card-title">Recent activity</span>
+            <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={onOpenActivity}>
+              All activity
+            </button>
+          </div>
+
+          {activity.length === 0 ? (
+            <JobEmpty
+              title="Nothing recorded yet"
+              body="Run an analysis in any engine; its result is summarised here."
+            />
+          ) : (
+            <div className="cc-rows">
+              {activity.slice(0, 8).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="cc-activity-row"
+                  onClick={() => onOpenTool(item.tool)}
+                >
+                  <span className="cc-activity-mark">
+                    <ToolIcon tool={item.tool} size={14} />
+                  </span>
+                  <span className="cc-activity-copy">
+                    <strong>{item.actionType}</strong>
+                    <small>{item.description}</small>
+                  </span>
+                  <time>{item.timestamp}</time>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
 }

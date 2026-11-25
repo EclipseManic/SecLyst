@@ -33,6 +33,15 @@ export interface PlatformSummary {
   collections: Record<ToolId, PlatformCollection>;
 }
 
+export interface AuthStatus {
+  /** Whether the control plane gates its API behind a password at all. */
+  required: boolean;
+  /** Whether a password has been set yet (false means first-run setup). */
+  configured: boolean;
+  /** Whether the current browser holds a valid session cookie. */
+  authenticated: boolean;
+}
+
 const ACTIVITY_LABELS: Record<ToolId, string> = {
   malware: 'Malware scan',
   ioc: 'IOC lookup',
@@ -174,12 +183,51 @@ export class SeclystApiClient {
     return response.json() as Promise<T>;
   }
 
+  /* The control plane wraps HTTP errors as { error: { code, message } }. Surface
+     the server's own sentence (an incorrect password, a weak one) rather than a
+     status code the person cannot act on. */
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store'
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: { message?: string } }
+      | null;
+    if (!response.ok) {
+      throw new Error(payload?.error?.message || `Request failed with HTTP ${response.status}`);
+    }
+    return payload as T;
+  }
+
   status(signal?: AbortSignal): Promise<PlatformStatus> {
     return this.get<PlatformStatus>('/api/platform/status', signal);
   }
 
   summary(signal?: AbortSignal): Promise<PlatformSummary> {
     return this.get<PlatformSummary>('/api/platform/summary', signal);
+  }
+
+  authStatus(signal?: AbortSignal): Promise<AuthStatus> {
+    return this.get<AuthStatus>('/api/v1/auth/status', signal);
+  }
+
+  authLogin(password: string): Promise<AuthStatus> {
+    return this.post<AuthStatus>('/api/v1/auth/login', { password });
+  }
+
+  authSetup(password: string): Promise<AuthStatus> {
+    return this.post<AuthStatus>('/api/v1/auth/setup', { password });
+  }
+
+  authLogout(): Promise<AuthStatus> {
+    return this.post<AuthStatus>('/api/v1/auth/logout', {});
+  }
+
+  authChangePassword(current: string, password: string): Promise<AuthStatus> {
+    return this.post<AuthStatus>('/api/v1/auth/password', { current, password });
   }
 
   async healthCheck(tool: ToolId): Promise<{ status: 'online' | 'offline' | 'unknown'; latencyMs: number; version: string }> {
