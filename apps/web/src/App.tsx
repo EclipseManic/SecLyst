@@ -29,6 +29,16 @@ const WORKSPACE_NAV: { page: PageRouteId; label: string; icon: 'home' | 'dashboa
 
 const KEEPALIVE_TOOL_FRAMES = import.meta.env.VITE_SECLYST_KEEPALIVE_FRAMES !== '0';
 
+/* The main tab that holds each engine's stored results. An activity row opens
+   here — the record list — rather than the engine's blank first tab. */
+const TOOL_MAIN_TABS: Record<ToolId, string> = {
+  ioc: 'lookup',
+  malware: 'investigation',
+  phishing: 'analysis',
+  events: 'investigation',
+  ruleforge: 'workshop'
+};
+
 function classifyIndicator(value: string): IOCClipboardItem['type'] {
   if (/^https?:\/\//i.test(value)) return 'url';
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
@@ -117,6 +127,13 @@ export default function App() {
 
   // Activity Feed, Toasts & Backend Health
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>([]);
+  // Ids of activity the analyst has cleared. The feed is re-read from the
+  // platform summary every 10 seconds, so clearing the array alone would just
+  // bring the same rows back. Remembering the ids (persisted) is what makes a
+  // clear stick while still letting new results through.
+  const [dismissedActivity, setDismissedActivity] = useState<string[]>(() =>
+    safeLocalGet<string[]>('seclyst.activityDismissed', [])
+  );
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [platformSummary, setPlatformSummary] = useState<PlatformSummary | null>(null);
   const [platformRefreshing, setPlatformRefreshing] = useState(false);
@@ -147,6 +164,29 @@ export default function App() {
       }, 4500);
     }
   }, []);
+
+  const dismissedActivityIds = useMemo(
+    () => new Set(dismissedActivity),
+    [dismissedActivity]
+  );
+  const visibleActivity = useMemo(
+    () => activityFeed.filter((item) => !dismissedActivityIds.has(item.id)),
+    [activityFeed, dismissedActivityIds]
+  );
+
+  const clearActivity = useCallback(() => {
+    // Cap the memory so a long-lived session cannot grow the list forever.
+    const next = Array.from(
+      new Set([...dismissedActivity, ...activityFeed.map((item) => item.id)])
+    ).slice(-800);
+    setDismissedActivity(next);
+    safeLocalSet('seclyst.activityDismissed', next);
+    addToast({
+      type: 'success',
+      title: 'Activity cleared',
+      description: 'New results will appear here as they arrive.'
+    });
+  }, [activityFeed, dismissedActivity, addToast]);
 
   const refreshPlatform = useCallback(async () => {
     setPlatformRefreshing(true);
@@ -229,6 +269,26 @@ safeLocalSet('seclyst.reduceMotion', reduceMotion);
     setNotificationsOpen(false);
     setUserMenuOpen(false);
   }, []);
+
+  /* Open whatever an activity row points at. An IOC record carries its
+     indicator, so it reopens IOC Lookup with that value entered; every other
+     engine opens its stored-results sub-tab. */
+  const openActivityItem = useCallback(
+    (item: ActivityItem) => {
+      if (item.tool === 'ioc' && item.targetItemId) {
+        setToolQuery('ioc', `?page=lookup&ioc=${encodeURIComponent(item.targetItemId)}`);
+        navigateTo('ioc', TOOL_MAIN_TABS.ioc, 'lookup');
+        return;
+      }
+      const definition = TOOLS_REGISTRY[item.tool];
+      navigateTo(
+        item.tool,
+        TOOL_MAIN_TABS[item.tool] || definition.mainTabs[1]?.id || definition.mainTabs[0].id,
+        item.targetSubTab || definition.subTabs[0].id
+      );
+    },
+    [navigateTo, setToolQuery]
+  );
 
   /* Read the hash back.
 
@@ -340,7 +400,7 @@ if (e.key === 'Escape') {
   const activeTool: ToolId | null = page in TOOLS_REGISTRY ? page as ToolId : null;
   const currentToolDef = activeTool ? TOOLS_REGISTRY[activeTool] : null;
   const isToolPage = page in TOOLS_REGISTRY;
-  const unreadCount = activityFeed.filter((a) => a.unread).length;
+  const unreadCount = visibleActivity.filter((a) => a.unread).length;
 
   useEffect(() => {
     if (!activeTool) return;
@@ -637,7 +697,7 @@ const userInitials = userName
             <div className="sc-scroll">
               <Dashboard
                 backendStatus={backendStatus}
-                activity={activityFeed}
+                activity={visibleActivity}
                 summary={platformSummary}
                 onOpenTool={(tool) => navigateTo(tool)}
                 onQuickIoc={(ioc) => {
@@ -645,10 +705,20 @@ const userInitials = userName
                   navigateTo('ioc', 'lookup', 'lookup');
                 }}
                 onOpenActivity={() => navigateTo('activity')}
+                onOpenActivityItem={openActivityItem}
+                onClearActivity={clearActivity}
               />
             </div>
           )}
-          {page === 'activity' && <div className="sc-scroll"><ActivityPage items={activityFeed} /></div>}
+          {page === 'activity' && (
+            <div className="sc-scroll">
+              <ActivityPage
+                items={visibleActivity}
+                onOpenItem={openActivityItem}
+                onClear={clearActivity}
+              />
+            </div>
+          )}
 
           {KEEPALIVE_TOOL_FRAMES ? (
             <ToolDock

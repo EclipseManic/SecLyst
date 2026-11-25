@@ -91,7 +91,9 @@ export function Dashboard({
   summary,
   onOpenTool,
   onQuickIoc,
-  onOpenActivity
+  onOpenActivity,
+  onOpenActivityItem,
+  onClearActivity
 }: {
   backendStatus: Record<ToolId, EngineState>;
   activity: ActivityItem[];
@@ -99,11 +101,14 @@ export function Dashboard({
   onOpenTool: (tool: ToolId) => void;
   onQuickIoc: (value: string) => void;
   onOpenActivity: () => void;
+  onOpenActivityItem: (item: ActivityItem) => void;
+  onClearActivity: () => void;
 }) {
   const [objective, setObjective] = useState('');
   const [selectedTool, setSelectedTool] = useState<ToolId>('ioc');
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [jobsState, setJobsState] = useState<RegionState>('loading');
+  const [confirmClear, setConfirmClear] = useState(false);
   const objectiveRef = useRef<HTMLTextAreaElement>(null);
   const intakeRef = useRef<HTMLElement>(null);
 
@@ -132,6 +137,14 @@ export function Dashboard({
       cancelled = true;
     };
   }, []);
+
+  // Clearing the timeline is a two-press action; an armed confirm that is not
+// followed through should disarm on its own.
+  useEffect(() => {
+    if (!confirmClear) return;
+    const timer = window.setTimeout(() => setConfirmClear(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [confirmClear]);
 
   const tools = useMemo(() => Object.values(TOOLS_REGISTRY) as ToolDefinition[], []);
   const online = tools.filter((tool) => backendStatus[tool.id] === 'online').length;
@@ -505,9 +518,29 @@ export function Dashboard({
           <div className="ui-card home-card">
             <div className="ui-card-head">
               <span className="ui-card-title">Recent activity</span>
-              <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={onOpenActivity}>
-                All activity
-              </button>
+              <span className="home-card-actions">
+                <button
+                  type="button"
+                  className="ui-btn ui-btn--quiet ui-btn--sm"
+                  data-confirm={confirmClear ? 'true' : undefined}
+                  disabled={activity.length === 0}
+                  onClick={() => {
+                    if (!confirmClear) {
+                      setConfirmClear(true);
+                      return;
+                    }
+                    setConfirmClear(false);
+                    onClearActivity();
+                  }}
+                  onBlur={() => setConfirmClear(false)}
+                  title={confirmClear ? 'Press again to clear every row' : 'Clear the activity shown here'}
+                >
+                  {confirmClear ? 'Confirm' : 'Clear'}
+                </button>
+                <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={onOpenActivity}>
+                  All activity
+                </button>
+              </span>
             </div>
 
             {activity.length === 0 ? (
@@ -522,9 +555,11 @@ export function Dashboard({
                     key={item.id}
                     type="button"
                     className="home-activity-row"
-                    onClick={() => onOpenTool(item.tool)}
+                    data-tool={item.tool}
+                    onClick={() => onOpenActivityItem(item)}
+                    aria-label={`Open ${TOOLS_REGISTRY[item.tool].name}: ${item.actionType} — ${item.description}`}
                   >
-                    <span className="home-activity-mark">
+                    <span className="home-activity-mark" aria-hidden="true">
                       <ToolIcon tool={item.tool} size={14} />
                     </span>
                     <span className="home-activity-copy">

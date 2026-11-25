@@ -50,6 +50,17 @@ const ACTIVITY_LABELS: Record<ToolId, string> = {
   ruleforge: 'Rule history'
 };
 
+/* Where each engine keeps the stored results an activity row points at. The
+   row has always carried `targetSubTab`, but nothing ever filled it, so a
+   click had no destination. These are the sub-tabs that list saved runs. */
+const ACTIVITY_TARGETS: Record<ToolId, string> = {
+  malware: 'dashboard',
+  ioc: 'history',
+  events: 'events',
+  phishing: 'dashboard',
+  ruleforge: 'history'
+};
+
 function recordText(record: Record<string, unknown>, keys: string[]): string {
   for (const key of keys) {
     const value = record[key];
@@ -63,21 +74,30 @@ export function summaryToActivity(summary: PlatformSummary): ActivityItem[] {
   const rows: ActivityItem[] = [];
   (Object.entries(summary.collections) as [ToolId, PlatformCollection][]).forEach(([tool, collection]) => {
     collection.records.forEach((record, index) => {
-      const id = recordText(record, ['id', 'scan_id', 'investigation_id', 'ioc_id']) || `${tool}-${index}`;
-      const subject = recordText(record, ['filename', 'ioc', 'name', 'title', 'rule_name', 'source']) || 'Stored record';
+      const recordId = recordText(record, ['id', 'scan_id', 'investigation_id', 'ioc_id']);
+      const subjectRaw = recordText(record, ['filename', 'ioc', 'name', 'title', 'rule_name', 'source']);
+      const subject = subjectRaw || 'Stored record';
       const state = recordText(record, ['verdict', 'severity', 'status', 'action', 'origin']);
       const rawTime = recordText(record, ['timestamp', 'updated_at', 'created_at', 'last_lookup', 'saved_at']);
       const parsedTime = rawTime ? new Date(rawTime) : null;
       const timestamp = parsedTime && !Number.isNaN(parsedTime.getTime())
         ? parsedTime.toLocaleString()
         : rawTime || 'Time unavailable';
+      // Records without their own id fall back to their content, not their
+      // index: clearing the feed keys off this id, and an index would make a
+      // brand-new record inherit an old row's dismissed state.
+      const stableId = recordId || `${subjectRaw || 'record'}-${rawTime || index}`;
       rows.push({
-        id: `${tool}-${id}`,
+        id: `${tool}-${stableId}`,
         tool,
         actionType: ACTIVITY_LABELS[tool],
         description: state ? `${subject}: ${state}` : subject,
         timestamp,
         severity: 'info',
+        targetSubTab: ACTIVITY_TARGETS[tool],
+        // IOC Lookup is the one engine whose deep-link contract the shell
+        // already uses, so an indicator is carried through and looked up.
+        targetItemId: subjectRaw || recordId || undefined,
         unread: false
       });
     });
