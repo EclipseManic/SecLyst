@@ -1,4 +1,13 @@
+# Development, test and verification tooling.
+#     python -m pip install -r requirements-dev.txt
 -r requirements.txt
--r engines/ioc/requirements-dev.txt
-selenium>=4.38,<5
+
+# Test runner and plugins (pytest itself is pinned in requirements.txt)
+pytest-asyncio==1.3.0
+pytest-cov>=6.0,<7.0
+
+# Lint, dependency audit, and browser-driven verification
 ruff==0.15.7
+pip-audit==2.10.0
+selenium>=4.38,<5
+
