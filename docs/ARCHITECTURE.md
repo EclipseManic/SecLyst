@@ -59,7 +59,7 @@ Copied engines live under `engines/`. Integration changes are deliberately narro
 - Vulnerable dependency constraints were updated.
 - Automatic browser launch is disabled by the supervisor.
 
-Original interface source is otherwise retained. Seclyst-specific UI belongs only under `apps/web/`.
+Original interface source is otherwise retained. Seclyst-specific UI belongs only under `web/`.
 
 ## Failure Model
 

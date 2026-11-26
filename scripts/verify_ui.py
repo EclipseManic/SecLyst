@@ -55,7 +55,7 @@ def main() -> int:
     base_url = f"http://127.0.0.1:{args.shell_port}/"
 
     if not (WEB_DIST / "index.html").is_file():
-        raise SystemExit("Build apps/web before running browser verification.")
+        raise SystemExit("Build web/ before running browser verification.")
 
     supervisor = Supervisor(args.shell_port)
     supervisor.start_all()

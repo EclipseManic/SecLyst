@@ -77,13 +77,13 @@ from app.backend.webhooks import add_webhook, list_webhooks, remove_webhook, shu
 from app.backend.logger import configure_logging, describe_exception, get_logger, _correlation_id
 
 try:
-    from seclyst.engines.client import EngineControlClient
+    from seclyst.integration.client import EngineControlClient
 except ImportError:
     EngineControlClient = None
 
 _seclyst_control = EngineControlClient("ioc") if EngineControlClient else None
 try:
-    from seclyst.engines.access import COOKIE_NAME, clean_bootstrap_url, required_token, valid
+    from seclyst.integration.access import COOKIE_NAME, clean_bootstrap_url, required_token, valid
 except ImportError:
     COOKIE_NAME = "seclyst_access"
     def clean_bootstrap_url(value):

@@ -4,7 +4,7 @@ Seclyst was assembled from the following sibling directories in the Combined Pro
 
 | Seclyst path | Source directory | Treatment |
 | --- | --- | --- |
-| `apps/web/` | `secconflux/` | Shell retained, renamed, connected to live engines, fixture tool reimplementations removed |
+| `web/` | `secconflux/` | Shell retained, renamed, connected to live engines, fixture tool reimplementations removed |
 | `engines/malware/` | `Malware Analyzer/` | Production source, tests, rules, and original UI copied |
 | `engines/ioc/` | `ioc-platform/` | Backend, tests, and original React UI copied |
 | `engines/events/` | `Event-Analyzer/` | Production source, tests, Sigma data, and original UI copied |

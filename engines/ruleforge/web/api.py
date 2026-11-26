@@ -49,13 +49,13 @@ from engine.validate import validate
 from engine.values import ABSENT, UNDECIDED, Capability, Duration, Refusal, Seq
 
 try:
-    from seclyst.engines.client import EngineControlClient
+    from seclyst.integration.client import EngineControlClient
 except ImportError:
     EngineControlClient = None
 
 _seclyst_control = EngineControlClient("ruleforge") if EngineControlClient else None
 try:
-    from seclyst.engines.access import (
+    from seclyst.integration.access import (
         ACCESS_DENIED_HTML,
         COOKIE_NAME,
         clean_bootstrap_url,

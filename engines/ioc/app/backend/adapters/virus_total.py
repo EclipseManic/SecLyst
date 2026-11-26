@@ -7,7 +7,7 @@ from app.backend.adapters.base import NormalizedResult, RateLimitConfig, SourceA
 from app.backend.config import settings
 
 try:
-    from seclyst.engines.client import EngineControlClient
+    from seclyst.integration.client import EngineControlClient
 except ImportError:
     EngineControlClient = None
 

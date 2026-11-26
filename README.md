@@ -217,8 +217,8 @@ Run the platform suite:
 Build and test the frontends:
 
 ```bash
-npm --prefix apps/web run build
-npm --prefix apps/web test
+npm --prefix web run build
+npm --prefix web test
 npm --prefix engines/ioc/ui test
 npm --prefix engines/ioc/ui run build
 ```
@@ -233,23 +233,45 @@ On Windows, replace `.venv/bin/python` with `.venv\Scripts\python.exe`. The same
 
 ## Repository layout
 
+Three directories hold code, and nothing is duplicated between them:
+
+| Path | What lives there |
+| --- | --- |
+| `web/` | The workbench UI. One React + Vite application. |
+| `seclyst/` | The platform backend: HTTP API, durable jobs, provider broker, artifacts, database. |
+| `engines/` | The five analysis tools. Code and tests only — no UI, no docs, no manifests. |
+| `migrations/` | Alembic migrations for the control-plane database. |
+| `tests/` | Platform test suite. Each engine keeps its own suite inside its directory. |
+| `scripts/` | Setup, verification, and screenshot tooling. |
+| `docs/` | Architecture, engines, API, operations, and the screenshot gallery. |
+| `runtime/` | Local state: databases, uploads, logs. Git-ignored. |
+
 ```
 Seclyst/
-├── apps/web/            # Seclyst shell (React + Vite)
-├── engines/             # The five analysis engines
-│   ├── events/          # Event Analyzer
-│   ├── ioc/             # IOC Lookup Platform
-│   ├── malware/         # Malware Analyzer
-│   ├── phishing/        # Phishing Mail Detector
-│   └── ruleforge/       # RuleForge
-├── seclyst/             # Control plane: API, jobs, providers, artifacts
-├── migrations/          # Alembic migrations
-├── tests/               # Platform test suite
-├── scripts/             # Setup and verification tooling
-├── docs/                # Architecture, operations, provenance
-├── runtime/             # Local state (git-ignored)
-└── run.py               # Entry point
+├── web/                    # the workbench UI
+│   └── src/
+├── seclyst/                # the platform backend
+│   ├── api/                # HTTP surface
+│   ├── database/           # models, session, migration runner
+│   ├── jobs/               # durable job kernel
+│   ├── providers/          # threat-intelligence broker
+│   ├── integration/        # engine access gate and control client
+│   ├── app.py              # FastAPI application
+│   └── server.py           # supervisor, CLI, static shell server
+├── engines/                # the five analysis tools
+│   ├── ioc/  malware/  phishing/  events/  ruleforge/
+├── migrations/             # control-plane schema migrations
+├── tests/                  # platform tests
+├── scripts/                # setup, verify, capture
+├── docs/                   # documentation and screenshots
+├── run.py                  # entry point
+└── runtime/                # local state, git-ignored
 ```
+
+Two names used to collide and no longer do: `seclyst/integration/` holds the
+helpers that let an engine talk to the platform, while `engines/` holds the five
+tools themselves.
+
 
 ## Troubleshooting
 

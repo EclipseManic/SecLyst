@@ -43,7 +43,7 @@ def setup_node() -> None:
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
     if npm is None:
         raise SystemExit("Node.js and npm are required to build the Seclyst interfaces.")
-    for project in (ROOT / "apps" / "web", ROOT / "engines" / "ioc" / "ui"):
+    for project in (ROOT / "web", ROOT / "engines" / "ioc" / "ui"):
         run([npm, "ci"], cwd=project)
         run([npm, "run", "build"], cwd=project)
 
@@ -61,7 +61,7 @@ def main() -> int:
     if not args.skip_node:
         setup_node()
 
-    if not (ROOT / "apps" / "web" / "dist" / "index.html").is_file():
+    if not (ROOT / "web" / "dist" / "index.html").is_file():
         raise SystemExit("Seclyst web build is missing. Run setup without --skip-node.")
     if not (ROOT / "engines" / "ioc" / "ui" / "dist" / "index.html").is_file():
         raise SystemExit("IOC interface build is missing. Run setup without --skip-node.")
