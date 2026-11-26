@@ -1,4 +1,12 @@
-"""Capture the visible landing surface of every live Seclyst tool frame."""
+"""Capture the visible landing surface of every live Seclyst tool frame.
+
+Writes the PNGs that the repository README links to, so the evidence in the
+docs can be regenerated from a running build instead of being hand-picked:
+
+    python scripts/capture_tool_overviews.py
+
+Use --output to write somewhere else, for example a versioned snapshot.
+"""
 
 from __future__ import annotations
 
@@ -33,11 +41,16 @@ CAPTURE_PORTS = {
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--label", default="current")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=ROOT / "docs" / "screenshots",
+        help="directory to write the PNGs into (default: docs/screenshots)",
+    )
     parser.add_argument("--width", type=int, default=1440)
     parser.add_argument("--height", type=int, default=1000)
     args = parser.parse_args()
-    output = ROOT / "runtime" / "tool-overviews" / args.label
+    output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     for name, port in CAPTURE_PORTS.items():
         os.environ[name] = str(port)
@@ -75,7 +88,7 @@ def main() -> int:
             wait.until(lambda browser: len(browser.find_element(By.TAG_NAME, "body").text.strip()) > 40)
             driver.switch_to.default_content()
             frame = driver.find_element(By.CSS_SELECTOR, "iframe.sc-frame")
-            path = output / f"{tool}.png"
+            path = output / f"tool-{tool}.png"
             frame.screenshot(str(path))
             print(path)
         return 0
