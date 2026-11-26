@@ -163,3 +163,18 @@ Collection endpoint used by the dashboard: `GET /api/history?limit=20`.
 
 Do not add a README, a requirements file, or an interface inside the engine
 directory. Those are platform files.
+
+## Provenance
+
+The five engines began as standalone tools and were brought in to build Seclyst.
+The repository is licensed once, at the root, in [LICENSE](../LICENSE).
+
+The IOC Lookup engine carried its own MIT license file, reading
+`Copyright (c) 2026 Eclipsemanic`. That file was removed so there is one license
+rather than two, and the copyright line is recorded here instead of being lost.
+The other four engines were original work by the repository owner.
+
+The screenshot folders the engines shipped with (`engines/malware/Images/`,
+`engines/phishing/Images/`, `engines/events/Event_analyzer_Images/`) were removed
+for the same reason: product screenshots belong to the platform and live in
+[`docs/screenshots/`](screenshots/).
