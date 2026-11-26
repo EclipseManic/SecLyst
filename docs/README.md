@@ -11,6 +11,7 @@ is put together and how to run it.
 | [SOURCES.md](SOURCES.md) | Where the analysis data and provider integrations come from |
 | [API.md](API.md) | The platform HTTP API: authentication, jobs, runs, artifacts, settings |
 | [screenshots/](screenshots/) | Real captures of the running product and how to regenerate them |
+| [gallery/](gallery/) | Screen-by-screen captures of each engine's original interface |
 | [internal/](internal/) | Historical design and delivery notes, not user documentation |
 
 ## Reading order
