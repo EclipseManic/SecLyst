@@ -52,7 +52,7 @@ from core.config import SETTINGS
 from core.database import init_db, save_scan, get_scan, list_scans, delete_scan, scan_count
 
 try:
-    from seclyst.engines.client import EngineControlClient
+    from seclyst.integration.client import EngineControlClient
 except ImportError:  # Standalone engine mode outside the SecLyst repository.
     EngineControlClient = None
 
@@ -65,7 +65,7 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"), static_folder=str(BASE_DIR / "static"))
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 try:
-    from seclyst.engines.access import install_flask_access
+    from seclyst.integration.access import install_flask_access
     install_flask_access(app)
 except ImportError:
     pass

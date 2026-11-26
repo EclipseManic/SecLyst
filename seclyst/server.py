@@ -35,7 +35,7 @@ from . import __version__
 ROOT = Path(__file__).resolve().parent.parent
 ENGINES = ROOT / "engines"
 RUNTIME = ROOT / "runtime"
-WEB_DIST = ROOT / "apps" / "web" / "dist"
+WEB_DIST = ROOT / "web" / "dist"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 ACCESS_TOKEN_FILE = RUNTIME / "access_token"

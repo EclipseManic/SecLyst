@@ -56,8 +56,8 @@ Faster loops while working:
 | Platform tests | `.venv/bin/python -m pytest` |
 | Platform lint | `.venv/bin/python -m ruff check .` |
 | One engine | `.venv/bin/python -m pytest -q` from inside `engines/<id>/` |
-| Shell tests | `npm --prefix apps/web test` |
-| Shell typecheck | `npm --prefix apps/web run typecheck` |
+| Shell tests | `npm --prefix web test` |
+| Shell typecheck | `npm --prefix web run typecheck` |
 
 Do not weaken a test to make a change pass. If a test is wrong, say so in the
 pull request and change the test in its own commit with the reasoning.
@@ -99,7 +99,7 @@ or `docs`.
 The full procedure is at the end of [docs/ENGINES.md](docs/ENGINES.md#adding-or-replacing-an-engine).
 In short: implement the engine, serve `GET /api/health`, honour the access token,
 register a `ToolSpec` in `seclyst/server.py`, add a `TOOLS_REGISTRY` entry in
-`apps/web/src/data/workspace.ts`, add dependencies to the root manifest, and
+`web/src/data/workspace.ts`, add dependencies to the root manifest, and
 document it.
 
 ## Reporting a security issue
