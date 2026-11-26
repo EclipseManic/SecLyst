@@ -69,8 +69,20 @@ def create_app(
                         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
                     )
         response = await call_next(request)
-        tools = supervisor.tools.values()
-        frame_sources = " ".join(tool.url.rstrip("/") for tool in tools)
+        # Frame each engine on the loopback name the analyst is actually using.
+        # A shell on localhost that frames engines on 127.0.0.1 is cross-site,
+        # so the engine's SameSite=Strict access cookie is withheld and every
+        # call 403s. Both aliases are allowed here; status() picks the one that
+        # matches the request.
+        origins: list[str] = []
+        for tool in supervisor.tools.values():
+            base = tool.url.rstrip("/")
+            if base not in origins:
+                origins.append(base)
+            alias = base.replace("127.0.0.1", "localhost")
+            if alias not in origins:
+                origins.append(alias)
+        frame_sources = " ".join(origins)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Frame-Options"] = "DENY"
@@ -89,8 +101,8 @@ def create_app(
     @app.get("/api/platform/status")
     @app.get("/api/platform/health")
     @app.get("/api/platform/tools")
-    def platform_status() -> dict[str, Any]:
-        return supervisor.status()
+    def platform_status(request: Request) -> dict[str, Any]:
+        return supervisor.status(preferred_host=request.url.hostname)
 
     @app.get("/api/platform/summary")
     def platform_summary() -> dict[str, Any]:

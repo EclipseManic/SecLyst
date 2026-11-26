@@ -33,7 +33,7 @@ def clean_bootstrap_url(url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
 
 
-_DENIED_HTML = """<!doctype html>
+ACCESS_DENIED_HTML = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>SecLyst access required</title>
 <style>html{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;
 background:#0d1117;color:#e6edf3;font:15px/1.5 system-ui,sans-serif}main{max-width:34rem;padding:2rem}
@@ -62,7 +62,7 @@ def install_flask_access(app) -> None:
         # A browser navigation gets a readable page; an API call gets JSON.
         # Both used to be a bare "Forbidden" that told the analyst nothing.
         if "text/html" in request.headers.get("Accept", "").lower():
-            return make_response(_DENIED_HTML, 403)
+            return make_response(ACCESS_DENIED_HTML, 403)
         return make_response(
             jsonify(
                 {

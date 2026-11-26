@@ -3,7 +3,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from seclyst.server import LOOPBACK_HOSTS, Supervisor, TOOL_SPECS, _load_env_file
+from seclyst.server import (
+    ACCESS_TOKEN_FILE,
+    LOOPBACK_HOSTS,
+    Supervisor,
+    TOOL_SPECS,
+    _load_env_file,
+    _load_or_create_access_token,
+)
 
 
 def test_tool_ports_are_unique_and_loopback_only() -> None:
@@ -43,3 +50,34 @@ def test_supervisor_redirects_mutable_engine_state_to_runtime() -> None:
         elif tool.spec.id == "ruleforge":
             assert env["RULEFORGE_HOME"].replace("\\", "/").lower().endswith("/runtime/ruleforge")
         assert "http://127.0.0.1:7000" in env["SECLYST_FRAME_ANCESTORS"]
+        assert "http://localhost:7000" in env["SECLYST_FRAME_ANCESTORS"]
+
+
+def test_access_token_is_reused_across_restarts(tmp_path: Path, monkeypatch) -> None:
+    token_file = tmp_path / "access_token"
+    monkeypatch.setattr("seclyst.server.ACCESS_TOKEN_FILE", token_file)
+    monkeypatch.delenv("SECLYST_ACCESS_TOKEN", raising=False)
+
+    first = _load_or_create_access_token()
+    second = _load_or_create_access_token()
+
+    assert first == second
+    assert token_file.read_text(encoding="utf-8").strip() == first
+    assert len(first) >= 20
+
+
+def test_access_token_env_override(monkeypatch) -> None:
+    monkeypatch.setattr("seclyst.server.ACCESS_TOKEN_FILE", ACCESS_TOKEN_FILE.parent / "unused")
+    monkeypatch.setenv("SECLYST_ACCESS_TOKEN", "pinned-token")
+    assert _load_or_create_access_token() == "pinned-token"
+
+
+def test_browser_url_follows_the_shell_host() -> None:
+    supervisor = Supervisor(7000, start_engines=False)
+    tool = supervisor.tools["ioc"]
+    tool.access_token = "tok"
+
+    assert tool.browser_url_for("localhost") == "http://localhost:7102/?seclyst_access=tok"
+    assert tool.browser_url_for("127.0.0.1") == "http://127.0.0.1:7102/?seclyst_access=tok"
+    # Anything that is not a loopback alias keeps the engine's own binding.
+    assert tool.browser_url_for("example.test") == "http://127.0.0.1:7102/?seclyst_access=tok"

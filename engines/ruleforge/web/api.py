@@ -55,8 +55,16 @@ except ImportError:
 
 _seclyst_control = EngineControlClient("ruleforge") if EngineControlClient else None
 try:
-    from seclyst.engines.access import COOKIE_NAME, clean_bootstrap_url, cookie_value, required_token, valid
+    from seclyst.engines.access import (
+        ACCESS_DENIED_HTML,
+        COOKIE_NAME,
+        clean_bootstrap_url,
+        cookie_value,
+        required_token,
+        valid,
+    )
 except ImportError:
+    ACCESS_DENIED_HTML = "<h1>This tool opens through SecLyst</h1>"
     COOKIE_NAME = "seclyst_access"
     def clean_bootstrap_url(value):
         return value
@@ -1002,10 +1010,24 @@ class RuleForgeHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return False
         supplied = self.headers.get("X-SecLyst-Access") or cookie_value(self.headers.get("Cookie"))
-        if not valid(supplied):
-            self.send_error(403, "SecLyst access required")
-            return False
-        return True
+        if valid(supplied):
+            return True
+        # A browser navigation gets a readable page; an API call gets JSON.
+        # Bare "403 SecLyst access required" told the analyst nothing.
+        if "text/html" in self.headers.get("Accept", "").lower():
+            body = ACCESS_DENIED_HTML.encode("utf-8")
+            self.send_response(403)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            self._send(403, {"error": {
+                "code": "access_required",
+                "message": "This engine only opens through SecLyst. Return to the dashboard and open the tool there.",
+            }})
+        return False
 
     # -- plumbing ---------------------------------------------------------
 

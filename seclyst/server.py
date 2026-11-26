@@ -38,6 +38,35 @@ RUNTIME = ROOT / "runtime"
 WEB_DIST = ROOT / "apps" / "web" / "dist"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+ACCESS_TOKEN_FILE = RUNTIME / "access_token"
+
+
+def _load_or_create_access_token() -> str:
+    """Reuse one access token across restarts.
+
+    The shell mints engine URLs with this token and every engine accepts only
+    it. A fresh random token on each start meant an engine still holding its
+    port from a previous run kept the *old* token, so the new shell's URLs were
+    rejected — surfaced to the analyst as "SecLyst access required" on each
+    tool. Persisting the token keeps old and new processes in agreement and
+    keeps engine cookies already issued to the browser valid.
+    """
+    override = os.getenv("SECLYST_ACCESS_TOKEN", "").strip()
+    if override:
+        return override
+    try:
+        existing = ACCESS_TOKEN_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        existing = ""
+    if existing:
+        return existing
+    token = secrets.token_urlsafe(32)
+    try:
+        RUNTIME.mkdir(parents=True, exist_ok=True)
+        ACCESS_TOKEN_FILE.write_text(token, encoding="utf-8")
+    except OSError:
+        pass
+    return token
 
 
 @dataclass(frozen=True)
@@ -64,9 +93,21 @@ class ToolProcess:
     def url(self) -> str:
         return f"http://127.0.0.1:{self.port}/"
 
+    def browser_url_for(self, host: str | None = None) -> str:
+        """The URL the shell should frame, on the host the analyst is using.
+
+        Engines bind loopback, but ``localhost`` and ``127.0.0.1`` are different
+        cookie sites. Framing an engine on the same name as the shell keeps its
+        SameSite=Strict access cookie same-site, so the token survives.
+        """
+        base = self.url
+        if host in LOOPBACK_HOSTS and host != "127.0.0.1":
+            base = base.replace("127.0.0.1", host, 1)
+        return f"{base}?seclyst_access={self.access_token}" if self.access_token else base
+
     @property
     def browser_url(self) -> str:
-        return f"{self.url}?seclyst_access={self.access_token}" if self.access_token else self.url
+        return self.browser_url_for()
 
 
 TOOL_SPECS = (
@@ -143,7 +184,7 @@ class Supervisor:
         self.start_engines = start_engines
         self.durable_jobs_enabled = durable_jobs_enabled
         self.provider_broker_enabled = provider_broker_enabled
-        self.browser_access_token = secrets.token_urlsafe(32)
+        self.browser_access_token = _load_or_create_access_token()
         self.tools = {
             spec.id: ToolProcess(spec=spec, port=_configured_port(spec))
             for spec in TOOL_SPECS
@@ -310,13 +351,13 @@ class Supervisor:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
-    def _tool_status(self, tool: ToolProcess) -> dict[str, Any]:
+    def _tool_status(self, tool: ToolProcess, preferred_host: str | None = None) -> dict[str, Any]:
         exit_code = tool.process.poll() if tool.process is not None else None
         if tool.start_error:
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.browser_url,
+                "url": tool.browser_url_for(preferred_host),
                 "port": tool.port,
                 "status": "error",
                 "detail": tool.start_error,
@@ -325,7 +366,7 @@ class Supervisor:
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.browser_url,
+                "url": tool.browser_url_for(preferred_host),
                 "port": tool.port,
                 "status": "error",
                 "detail": f"Engine exited with code {exit_code}. See runtime/logs/{tool.spec.id}.log.",
@@ -335,7 +376,7 @@ class Supervisor:
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.browser_url,
+                "url": tool.browser_url_for(preferred_host),
                 "port": tool.port,
                 "status": "online",
                 "detail": health,
@@ -345,15 +386,20 @@ class Supervisor:
             return {
                 "id": tool.spec.id,
                 "name": tool.spec.name,
-                "url": tool.browser_url,
+                "url": tool.browser_url_for(preferred_host),
                 "port": tool.port,
                 "status": status,
                 "detail": str(exc),
             }
 
-    def status(self) -> dict[str, Any]:
+    def status(self, preferred_host: str | None = None) -> dict[str, Any]:
         with ThreadPoolExecutor(max_workers=len(self.tools)) as executor:
-            rows = list(executor.map(self._tool_status, self.tools.values()))
+            rows = list(
+                executor.map(
+                    lambda tool: self._tool_status(tool, preferred_host),
+                    self.tools.values(),
+                )
+            )
         return {
             "product": "Seclyst",
             "version": __version__,
@@ -409,7 +455,8 @@ class SeclystHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         path = urlsplit(self.path).path.rstrip("/") or "/"
         if path in {"/api/platform/status", "/api/platform/health", "/api/platform/tools"}:
-            self._json(self.supervisor.status())
+            host = urlsplit("//" + (self.headers.get("Host") or "")).hostname
+            self._json(self.supervisor.status(preferred_host=host))
             return
         if path == "/api/platform/summary":
             self._json(self.supervisor.summary())
@@ -431,7 +478,15 @@ class SeclystHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def end_headers(self) -> None:
-        frame_sources = " ".join(tool.url.rstrip("/") for tool in self.supervisor.tools.values())
+        origins: list[str] = []
+        for tool in self.supervisor.tools.values():
+            base = tool.url.rstrip("/")
+            if base not in origins:
+                origins.append(base)
+            alias = base.replace("127.0.0.1", "localhost")
+            if alias not in origins:
+                origins.append(alias)
+        frame_sources = " ".join(origins)
         connect_sources = frame_sources
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
