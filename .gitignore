@@ -54,3 +54,38 @@ extract_issues.py
 # Keep Seclyst's copied engine visible if this directory is committed there.
 !engines/ruleforge/
 !engines/ruleforge/**
+
+# That negation re-includes generated files inside the engine too, so they are
+# ignored again here. Without this the engine's bytecode and local rule history
+# show up as untracked.
+engines/ruleforge/**/__pycache__/
+engines/ruleforge/**/*.py[cod]
+engines/ruleforge/data/*.sqlite3
+engines/ruleforge/data/*.sqlite3-*
+engines/ruleforge/data/*.db
+engines/ruleforge/build/
+engines/ruleforge/*.egg-info/
+
+# Browser-verification artifacts
+e2e-proof/
+qa-shots/
+undefined/
+
+# Build metadata and local verification output
+*.tsbuildinfo
+data-test
+live_probe_output.json
+
+# Assistant and browser-automation working state
+.mimocode/
+.playwright-mcp/
+.opencode/
+oxcode.hooks.json
+
+# Editor and operating system extras
+desktop.ini
+
+# Working notes and planning scratch
+session-*.md
+*-session.txt
+.planning/
