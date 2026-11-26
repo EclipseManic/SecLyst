@@ -21,6 +21,9 @@ export interface ActivityItem {
   actionType: string;
   description: string;
   timestamp: string;
+  /** When the record was made, in epoch ms. Used so a cleared timeline stays
+      cleared even if an engine later re-issues the same row under a new id. */
+  recordedAt?: number;
   verdict?: VerdictType;
   scoreText?: string;
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';

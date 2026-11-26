@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TOOLS_REGISTRY } from '../data/workspace';
 import type { ActivityItem, ToolDefinition, ToolId } from '../data/workspace';
+import { apiClient } from '../lib/api-client';
 import type { PlatformSummary } from '../lib/api-client';
 import { ToolIcon } from '../lib/icons';
 
 const ANALYSIS_TOOLS: ToolId[] = ['ioc', 'malware', 'phishing', 'events'];
+/* These engines analyse evidence files. IOC Lookup takes an indicator and
+   RuleForge takes a rule, so neither belongs in a file picker. */
+const FILE_TOOLS: ToolId[] = ['malware', 'phishing', 'events'];
+const MAX_INTAKE_FILES = 25;
 
 const ACTIVE_JOB_STATUSES = ['queued', 'running', 'waiting_provider', 'waiting_rate_limit', 'retrying'];
 
@@ -109,8 +114,14 @@ export function Dashboard({
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [jobsState, setJobsState] = useState<RegionState>('loading');
   const [confirmClear, setConfirmClear] = useState(false);
+  const [intakeFiles, setIntakeFiles] = useState<File[]>([]);
+  const [intakeBusy, setIntakeBusy] = useState(false);
+  const [intakeError, setIntakeError] = useState('');
+  const [intakeNote, setIntakeNote] = useState('');
   const objectiveRef = useRef<HTMLTextAreaElement>(null);
   const intakeRef = useRef<HTMLElement>(null);
+  const filesRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,14 +165,51 @@ export function Dashboard({
     ? tools.reduce((sum, tool) => sum + (counts?.[tool.id]?.count ?? 0), 0)
     : null;
 
-  // An objective is only carried into IOC lookup, where it becomes the query.
-  // The other engines open at their own intake, so they need no text first.
+  // An objective is only required for IOC lookup, where it becomes the query.
+  // A file tool can open with or without evidence; when files are chosen they
+  // are handed to the engine before it opens.
   const canStart = selectedTool === 'ioc' ? objective.trim().length > 0 : true;
 
-  const start = () => {
-    if (selectedTool === 'ioc' && objective.trim()) {
-      onQuickIoc(objective.trim());
+  const resetPickedFiles = () => {
+    setIntakeFiles([]);
+    if (filesRef.current) filesRef.current.value = '';
+    if (folderRef.current) folderRef.current.value = '';
+  };
+
+  const pickFiles = (list: FileList | null) => {
+    setIntakeFiles(Array.from(list || []).slice(0, MAX_INTAKE_FILES));
+    setIntakeError('');
+    setIntakeNote('');
+  };
+
+  const start = async () => {
+    if (intakeBusy) return;
+    setIntakeError('');
+    setIntakeNote('');
+    if (selectedTool === 'ioc') {
+      if (objective.trim()) onQuickIoc(objective.trim());
       return;
+    }
+    if (intakeFiles.length && !FILE_TOOLS.includes(selectedTool)) {
+      setIntakeError(
+        `${TOOLS_REGISTRY[selectedTool].shortName} works on text, not files. Paste your input into it instead.`
+      );
+      return;
+    }
+    if (intakeFiles.length) {
+      setIntakeBusy(true);
+      try {
+        const result = await apiClient.intake(selectedTool, intakeFiles);
+        setIntakeNote(
+          `${result.started} file${result.started === 1 ? '' : 's'} queued in ${TOOLS_REGISTRY[selectedTool].shortName}.`
+        );
+        resetPickedFiles();
+      } catch (error) {
+        setIntakeError(error instanceof Error ? error.message : 'The upload failed.');
+        setIntakeBusy(false);
+        return;
+      }
+      setIntakeBusy(false);
     }
     onOpenTool(selectedTool);
   };
@@ -406,7 +454,7 @@ export function Dashboard({
         <SectionHead
           kicker="Start here"
           title="Start with what you have."
-          lede="Paste an indicator to open IOC Lookup with it, or choose an engine and go straight in."
+          lede="Paste an indicator for IOC Lookup, upload a file or folder for the engines that analyse evidence, or choose an engine and go straight in."
         />
 
         <div className="home-start-card">
@@ -414,7 +462,7 @@ export function Dashboard({
             className="home-start-form"
             onSubmit={(event) => {
               event.preventDefault();
-              start();
+              void start();
             }}
           >
             <label className="home-field">
@@ -434,7 +482,12 @@ export function Dashboard({
                   key={id}
                   type="button"
                   aria-pressed={selectedTool === id}
-                  onClick={() => setSelectedTool(id)}
+                  onClick={() => {
+                    setSelectedTool(id);
+                    if (!FILE_TOOLS.includes(id)) resetPickedFiles();
+                    setIntakeError('');
+                    setIntakeNote('');
+                  }}
                 >
                   <ToolIcon tool={id} size={15} />
                   <span>{TOOLS_REGISTRY[id].shortName}</span>
@@ -442,14 +495,124 @@ export function Dashboard({
               ))}
             </div>
 
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                padding: '10px 12px',
+                border: '1px dashed var(--color-border, #30363d)',
+                borderRadius: 8
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <span className="ui-label">Or bring the evidence</span>
+                <span className="ui-meta">
+                  {selectedTool === 'events'
+                    ? 'Windows event logs (.evtx), one or more, opened as one investigation.'
+                    : selectedTool === 'phishing'
+                      ? 'A saved email (.eml) — the analysis runs in the detector.'
+                      : selectedTool === 'malware'
+                        ? 'A file to scan — hashes, strings, YARA and PE metadata.'
+                        : 'IOC Lookup and RuleForge take text, not files.'}
+                </span>
+              </div>
+
+              {FILE_TOOLS.includes(selectedTool) ? (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <label className="ui-btn ui-btn--ghost ui-btn--sm">
+                    Choose files
+                    <input
+                      ref={filesRef}
+                      type="file"
+                      multiple
+                      accept={
+                        selectedTool === 'events'
+                          ? '.evtx'
+                          : selectedTool === 'phishing'
+                            ? '.eml,.msg'
+                            : undefined
+                      }
+                      style={{ display: 'none' }}
+                      onChange={(event) => pickFiles(event.target.files)}
+                    />
+                  </label>
+                  {selectedTool !== 'phishing' && (
+                    <label className="ui-btn ui-btn--ghost ui-btn--sm">
+                      Choose a folder
+                      <input
+                        ref={folderRef}
+                        type="file"
+                        multiple
+                        {...({ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
+                        style={{ display: 'none' }}
+                        onChange={(event) => pickFiles(event.target.files)}
+                      />
+                    </label>
+                  )}
+                  {intakeFiles.length > 0 && (
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn--quiet ui-btn--sm"
+                      onClick={resetPickedFiles}
+                    >
+                      Clear selection
+                    </button>
+                  )}
+                </div>
+              ) : null}
+
+              {intakeFiles.length > 0 && (
+                <span className="ui-meta">
+                  {intakeFiles.length} file{intakeFiles.length === 1 ? '' : 's'} ready:{' '}
+                  {intakeFiles
+                    .slice(0, 3)
+                    .map((file) => file.name)
+                    .join(', ')}
+                  {intakeFiles.length > 3 ? ` +${intakeFiles.length - 3} more` : ''}
+                </span>
+              )}
+            </div>
+
+            {intakeError && (
+              <p className="ui-meta" role="alert" style={{ color: 'var(--color-malicious, #f85149)' }}>
+                {intakeError}
+              </p>
+            )}
+            {intakeNote && (
+              <p className="ui-meta" role="status">
+                {intakeNote}
+              </p>
+            )}
+
             <div className="home-start-foot">
               <span className="ui-meta">
                 {selectedTool === 'ioc'
                   ? 'IOC Lookup opens with this indicator already entered.'
-                  : `${TOOLS_REGISTRY[selectedTool].shortName} opens at its own intake.`}
+                  : intakeFiles.length
+                    ? `${intakeFiles.length} file${intakeFiles.length === 1 ? '' : 's'} will be handed to ${TOOLS_REGISTRY[selectedTool].shortName}.`
+                    : `${TOOLS_REGISTRY[selectedTool].shortName} opens at its own intake.`}
               </span>
-              <button type="submit" className="ui-btn ui-btn--primary" disabled={!canStart}>
-                {selectedTool === 'ioc' ? 'Look it up' : 'Open engine'}
+              <button
+                type="submit"
+                className="ui-btn ui-btn--primary"
+                disabled={!canStart || intakeBusy}
+              >
+                {intakeBusy
+                  ? 'Uploading…'
+                  : selectedTool === 'ioc'
+                    ? 'Look it up'
+                    : intakeFiles.length
+                      ? 'Upload & open'
+                      : 'Open engine'}
               </button>
             </div>
           </form>

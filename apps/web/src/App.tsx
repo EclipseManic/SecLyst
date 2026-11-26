@@ -134,6 +134,12 @@ export default function App() {
   const [dismissedActivity, setDismissedActivity] = useState<string[]>(() =>
     safeLocalGet<string[]>('seclyst.activityDismissed', [])
   );
+  // Clearing also remembers the moment it happened. Row ids can change when an
+  // engine re-issues a record, so this timestamp is the durable half of the
+  // contract: anything recorded before the clear stays hidden.
+  const [dismissedBefore, setDismissedBefore] = useState<number>(() =>
+    safeLocalGet<number>('seclyst.activityDismissedBefore', 0)
+  );
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [platformSummary, setPlatformSummary] = useState<PlatformSummary | null>(null);
   const [platformRefreshing, setPlatformRefreshing] = useState(false);
@@ -170,8 +176,19 @@ export default function App() {
     [dismissedActivity]
   );
   const visibleActivity = useMemo(
-    () => activityFeed.filter((item) => !dismissedActivityIds.has(item.id)),
-    [activityFeed, dismissedActivityIds]
+    () =>
+      activityFeed.filter((item) => {
+        if (dismissedActivityIds.has(item.id)) return false;
+        if (
+          dismissedBefore > 0 &&
+          typeof item.recordedAt === 'number' &&
+          item.recordedAt <= dismissedBefore
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [activityFeed, dismissedActivityIds, dismissedBefore]
   );
 
   const clearActivity = useCallback(() => {
@@ -179,8 +196,11 @@ export default function App() {
     const next = Array.from(
       new Set([...dismissedActivity, ...activityFeed.map((item) => item.id)])
     ).slice(-800);
+    const clearedAt = Date.now();
     setDismissedActivity(next);
     safeLocalSet('seclyst.activityDismissed', next);
+    setDismissedBefore(clearedAt);
+    safeLocalSet('seclyst.activityDismissedBefore', clearedAt);
     addToast({
       type: 'success',
       title: 'Activity cleared',

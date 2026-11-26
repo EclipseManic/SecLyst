@@ -296,6 +296,34 @@ app = FastAPI(
     openapi_url="/openapi.json" if not settings.api_keys else None,
 )
 
+_ACCESS_DENIED_HTML = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>SecLyst access required</title>
+<style>html{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;
+background:#0d1117;color:#e6edf3;font:15px/1.5 system-ui,sans-serif}main{max-width:34rem;padding:2rem}
+h1{font-size:1.15rem;margin:0 0 .5rem}p{margin:.35rem 0;color:#9da7b3}</style>
+</head><body><main><h1>This tool opens through SecLyst</h1>
+<p>The engine only accepts requests that carry the workspace access token.</p>
+<p>Go back to the SecLyst dashboard and open the tool from there.</p>
+</main></body></html>"""
+
+
+def _access_denied(request: Request) -> Response:
+    """A browser navigation gets a readable page; an API call gets JSON.
+
+    The bare JSON body used to be shown verbatim inside the frame, which told
+    the analyst nothing about what to do next.
+    """
+    if "text/html" in request.headers.get("accept", "").lower():
+        return HTMLResponse(_ACCESS_DENIED_HTML, status_code=403)
+    return JSONResponse(
+        {
+            "error": "SecLyst access required",
+            "detail": "This engine only opens through SecLyst. Return to the dashboard and open the tool there.",
+        },
+        status_code=403,
+    )
+
+
 @app.middleware("http")
 async def seclyst_access_middleware(request: Request, call_next):
     if not required_token():
@@ -307,7 +335,7 @@ async def seclyst_access_middleware(request: Request, call_next):
         return response
     supplied = request.headers.get("X-SecLyst-Access") or request.cookies.get(COOKIE_NAME)
     if not valid(supplied):
-        return JSONResponse({"error": "SecLyst access required"}, status_code=403)
+        return _access_denied(request)
     return await call_next(request)
 
 

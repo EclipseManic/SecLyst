@@ -25,19 +25,35 @@ export interface ToolFrameProps {
   query?: string;
 }
 
+function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === 'localhost' || host === '[::1]' || host === '::1';
+}
+
+/* An engine sets its access cookie with SameSite=Strict. Browsers treat
+   localhost and 127.0.0.1 as different sites, so a shell opened on localhost
+   that frames an engine on 127.0.0.1 is cross-site and the cookie is withheld —
+   every API call inside the frame then answers "SecLyst access required".
+   Frame the engine on the same loopback name the shell is using so the cookie
+   is same-site and is sent. */
+function frameUrl(endpoint: string, query: string): string {
+  const url = new URL(endpoint);
+  const pageHost = typeof window !== 'undefined' ? window.location.hostname : '';
+  if (isLoopbackHost(url.hostname) && isLoopbackHost(pageHost) && url.hostname !== pageHost) {
+    url.hostname = pageHost;
+  }
+  if (query) {
+    const toolQuery = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
+    toolQuery.forEach((value, key) => url.searchParams.set(key, value));
+  }
+  return url.toString();
+}
+
 export const ToolFrame = React.forwardRef<HTMLIFrameElement, ToolFrameProps>(function ToolFrame(
   { tool, endpoint, status, query = '' },
   ref
 ) {
   const definition = TOOLS_REGISTRY[tool];
-  const src = endpoint ? (() => {
-    const url = new URL(endpoint);
-    if (query) {
-      const toolQuery = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
-      toolQuery.forEach((value, key) => url.searchParams.set(key, value));
-    }
-    return url.toString();
-  })() : '';
+  const src = endpoint ? frameUrl(endpoint, query) : '';
 
   if (!endpoint || status !== 'online') {
     return (
