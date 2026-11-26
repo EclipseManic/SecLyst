@@ -1,0 +1,61 @@
+name: Feature request
+description: Propose a capability or a change in behaviour.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A request that starts from a real analyst workflow is easier to act on
+        than one that starts from a capability list. Describe the problem first.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and where does Seclyst get in the way today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: The behaviour you want, not necessarily the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including what you do today instead, or why a workaround is not enough.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Workbench shell
+        - IOC Lookup
+        - Malware Analyzer
+        - Event Analyzer
+        - Phishing Detector
+        - RuleForge
+        - Platform API, jobs, or artifacts
+        - Authentication or settings
+        - Setup, install, or build
+        - Documentation
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I read the roadmap and this is not already listed there.
+          required: true
+        - label: I searched existing issues for this request.
+          required: true
