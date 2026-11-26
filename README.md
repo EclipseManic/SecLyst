@@ -33,6 +33,8 @@ The result is a single analyst console where a finding in one tool can move to t
 
 These are captures of a running instance, not mockups. [`docs/screenshots/`](docs/screenshots/) lists what each image shows and the command that regenerates them.
 
+The original interface of every engine, screen by screen, is kept in [`docs/gallery/`](docs/gallery/).
+
 ## The five tools
 
 | Tool | Purpose | Port | Engine |
