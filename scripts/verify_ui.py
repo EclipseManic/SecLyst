@@ -74,16 +74,22 @@ def main() -> int:
         driver = webdriver.Chrome(options=options)
         wait = WebDriverWait(driver, 25)
 
-        for route, expected in (("#/", "Analyze. Correlate."), ("#/activity", "Your analysis timeline"), ("#/settings", "Settings")):
+        for route, expected in (("#/", "Know what you"), ("#/activity", "Your analysis timeline"), ("#/settings", "Settings")):
             driver.get(base_url + route)
             wait.until(lambda browser: expected in browser.find_element(By.TAG_NAME, "body").text)
             print(f"shell {route}: ok")
 
         driver.get(base_url + "#/")
-        dashboard_order = driver.execute_script("const consoleSection=document.querySelector('.ops-intake'); const ruleforge=document.querySelector('.ops-ruleforge'); return Boolean(consoleSection && ruleforge && (ruleforge.compareDocumentPosition(consoleSection) & Node.DOCUMENT_POSITION_FOLLOWING));")
-        if not dashboard_order:
-            raise RuntimeError("Dashboard analysis console is not the final section.")
-        print("dashboard hierarchy: analysis console is the final section")
+        dashboard_layout = driver.execute_script(
+            "const hero=document.querySelector('.home-hero');"
+            "const guide=document.querySelector('#home-guide');"
+            "const start=document.querySelector('#home-start');"
+            "return {hero:Boolean(hero),guide:Boolean(guide),start:Boolean(start),"
+            "startAfterGuide:Boolean(start && guide && (guide.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING))};"
+        )
+        if not (dashboard_layout["hero"] and dashboard_layout["start"] and dashboard_layout["startAfterGuide"]):
+            raise RuntimeError(f"Dashboard is missing the hero or the analysis launcher: {dashboard_layout}")
+        print("dashboard hierarchy: analysis launcher follows the tool guide")
         shell_scroll = driver.execute_script("const panel=document.querySelector('.sc-scroll'); panel.scrollTop=600; return {body:window.scrollY, panel:panel.scrollTop, rail:document.querySelector('.sc-rail').getBoundingClientRect().top};")
         if shell_scroll["body"] != 0 or shell_scroll["panel"] <= 0 or shell_scroll["rail"] != 0:
             raise RuntimeError(f"Sidebar and content scrolling are not isolated: {shell_scroll}")

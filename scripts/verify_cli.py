@@ -50,6 +50,11 @@ def main() -> int:
     creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    # This is a lifecycle smoke test, not an interactive session: it has no way
+    # to hold a password session (and one may already be configured on the
+    # machine). Run the launcher with the interactive gate off so the platform
+    # API it probes answers, matching the disabled-auth contract in test_auth.
+    env["SECLYST_AUTH"] = "false"
     process = subprocess.Popen(
         [sys.executable, "run.py", "--no-browser"],
         cwd=ROOT,
