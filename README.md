@@ -1,6 +1,17 @@
 # Seclyst
 
-**A unified local security analysis platform.** Seclyst runs five independent security tools behind one workbench, one launch command, and one shared control plane — without redrawing or rewriting any of the tools.
+**Five security analysis tools. One console.**
+
+Seclyst is a local platform that brings five independent security tools together
+behind a single workbench. It lets an analyst triage a suspicious file, enrich an
+indicator, hunt through Windows event logs, dissect a phishing email, and turn
+the result into a detection rule — without juggling five terminals, five browser
+tabs, and five sets of results.
+
+Each tool keeps **its own original backend and its own original interface**.
+Seclyst runs them on separate ports, hosts the real interfaces inside one console,
+and adds the layer that was always missing: shared navigation, live health,
+aggregated recent work, job tracking, and one place for API keys.
 
 [![CI](https://github.com/EclipseManic/SecLyst/actions/workflows/ci.yml/badge.svg)](https://github.com/EclipseManic/SecLyst/actions/workflows/ci.yml)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
@@ -9,99 +20,152 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-4B5563)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+![The Seclyst command center](gallery/home.png)
+
 ---
 
-## Overview
+## Why this exists
 
-Security analysts usually keep five separate tools, five terminals, five config files, and five places to look for results. Seclyst turns that into one application.
+A real investigation crosses tools constantly. You pull a hash out of an alert,
+look it up, find a dropped file, scan the file, read the log that shows how it
+ran, trace the email that delivered it, and finally write a rule so the next
+analyst catches it automatically.
 
-Each tool keeps its original backend and its original interface. Seclyst runs every engine on its own loopback port, hosts the real interface edge-to-edge inside the workbench, and adds the layer that was missing: shared navigation, live health, aggregated recent work, a shared clipboard, durable jobs, and coordinated provider access.
-
-The result is a single analyst console where a finding in one tool can move to the next tool without leaving the app or losing state.
-
-## Screenshots
-
-![The Seclyst command center](docs/screenshots/home.png)
-
-| IOC Lookup | Malware Analyzer | Phishing Detector |
-| --- | --- | --- |
-| ![IOC Lookup](docs/screenshots/tool-ioc.png) | ![Malware Analyzer](docs/screenshots/tool-malware.png) | ![Phishing Detector](docs/screenshots/tool-phishing.png) |
-
-| Event Analyzer | RuleForge |
-| --- | --- |
-| ![Event Analyzer](docs/screenshots/tool-events.png) | ![RuleForge](docs/screenshots/tool-ruleforge.png) |
-
-These are captures of a running instance, not mockups. [`docs/screenshots/`](docs/screenshots/) lists what each image shows and the command that regenerates them.
-
-The original interface of every engine, screen by screen, is kept in [`docs/screenshots/`](docs/screenshots/) under one folder per engine.
+Every one of those steps usually means a different tool with its own login, its
+own history, and its own copy of your notes. Seclyst removes that friction. It
+does not re-implement the tools or dumb them down — it keeps them exactly as they
+are and unifies the space around them, so the finding you just made in one tool
+is still there when you switch to the next.
 
 ## The five tools
 
-| Tool | Purpose | Port | Engine |
-| --- | --- | ---: | --- |
-| **IOC Lookup Platform** | Indicator enrichment, history, and export | 7102 | [`ioc`](docs/ENGINES.md#ioc-lookup) |
-| **Malware Analyzer** | Static analysis, YARA matching, PE inspection, risk scoring | 7101 | [`malware`](docs/ENGINES.md#malware-analyzer) |
-| **Event Analyzer** | EVTX ingestion, Sigma matching, MITRE ATT&CK mapping | 7103 | [`events`](docs/ENGINES.md#event-analyzer) |
-| **Phishing Mail Detector** | Header, body, URL, and attachment analysis | 7104 | [`phishing`](docs/ENGINES.md#phishing-detector) |
-| **RuleForge** | Detection rule authoring across eight SIEM dialects | 7105 | [`ruleforge`](docs/ENGINES.md#ruleforge) |
+Each tool is the genuine article: the original backend and the original interface,
+running on its own port and framed inside the console. What follows is what each
+one does and why an analyst reaches for it.
 
-RuleForge dialects: Sigma, Splunk, Elastic, Sentinel KQL, QRadar, Chronicle, CrowdStrike, and Wazuh.
+### 1. IOC Lookup — *"Is this indicator known-bad?"*
 
-## Capabilities
+Enrichment and investigation for indicators of compromise: IP addresses, domains,
+file hashes, URLs, crypto wallets, phone numbers, and breached credentials.
 
-- **One launch.** A single command starts the workbench and all five engines, and one shutdown stops everything.
-- **Original interfaces preserved.** Tool UIs are served by their own backends, so REST calls, server-sent events, WebSockets, uploads, and downloads behave exactly as they did standalone.
-- **Persistent tool state.** A tool mounts on first visit and stays mounted, so switching tools preserves route, form state, and live connections.
-- **Durable job kernel.** Long-running analysis survives navigation and restarts through a SQLite WAL job queue with ordered events, leases, and recovery.
-- **Coordinated provider access.** VirusTotal lookups from Malware, Phishing, and IOC share one broker with a global rate policy, single-flight deduplication, response caching, and a circuit breaker.
-- **Content-addressed artifacts.** Uploads stream while hashing, one immutable object per SHA-256, with derivation edges and quarantine-safe downloads.
-- **Loopback-only by default.** Every listener is bound to loopback and guarded by a per-launch access token.
+- **What it does:** queries multiple threat-intelligence providers for a single
+  indicator and returns a **consensus verdict**, with each provider's raw evidence
+  kept next to the score so you can see exactly what produced it.
+- **Why it matters:** one provider is often wrong or silent. Cross-checking several
+  and keeping the evidence is the difference between a guess and a defensible call.
+- **Also there:** a relationship graph between indicators, structured exports,
+  batch enrichment, and saved investigations.
 
-## Architecture
+![IOC Lookup inside Seclyst](gallery/tool-ioc.png)
 
-```mermaid
-flowchart LR
-    B[Browser] -->|127.0.0.1:7000| S[Seclyst shell<br/>React + Vite]
-    B -->|sandboxed frames| T1[Malware :7101]
-    B -->|sandboxed frames| T2[IOC :7102]
-    B -->|sandboxed frames| T3[Events :7103]
-    B -->|sandboxed frames| T4[Phishing :7104]
-    B -->|sandboxed frames| T5[RuleForge :7105]
+### 2. Malware Analyzer — *"What is this file, and what does it do?"*
 
-    S --> C[FastAPI control plane]
-    C --> J[(Job kernel<br/>data/seclyst.db)]
-    C --> A[(Artifact store<br/>data/artifacts)]
-    C --> P[Provider broker]
+Static, threat-intelligence, sandbox, and YARA analysis of a suspicious payload.
 
-    T1 --> P
-    T2 --> P
-    T4 --> P
-    P --> VT[VirusTotal]
-```
+- **What it does:** inspects executable and document structure (PE, ELF, Mach-O,
+  Office, PDF, archives), runs a bundled YARA corpus, and raises capability flags.
+- **Why it matters:** it answers the first question in any incident — is this
+  benign, unknown, or malicious — and gives you the indicators to keep hunting.
+- **Optional cloud enrichment:** VirusTotal, Hybrid Analysis, Triage, and FileScan.
+  Submitting an unknown sample to a public service is **off by default**.
 
-The shell never proxies or rewrites tool traffic. Each interface talks to its own backend on its own origin, which keeps the tools independent and prevents CSS or script collisions. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the process model, browser boundary, and failure model.
+![Malware Analyzer inside Seclyst](gallery/tool-malware.png)
+
+### 3. Event Analyzer — *"What actually happened on this host?"*
+
+Windows event-log (EVTX) ingestion, search, and threat hunting.
+
+- **What it does:** ingests EVTX files into a local, searchable index, extracts
+  indicators, and matches **Sigma rules**, tagging hits with MITRE ATT&CK
+  techniques.
+- **Why it matters:** the log is where an intrusion becomes visible. This turns
+  thousands of raw events into the handful that matter, with the technique named.
+- **Also there:** analyst notes, bookmarks, and report exports.
+
+![Event Analyzer inside Seclyst](gallery/tool-events.png)
+
+### 4. Phishing Mail Detector — *"Is this email a phish, and why?"*
+
+Email authentication, routing, content, and attachment forensics.
+
+- **What it does:** checks SPF, DKIM, DMARC, and ARC; analyses the sender and any
+  lookalike domain; walks the mail hops; inspects URLs and body content for
+  credential-harvesting patterns; and reads attachments with text extraction,
+  QR decoding, and OCR.
+- **Why it matters:** phishing is how most incidents start. This gives a verdict
+  **and the reasons behind it**, so the call can be explained, not just asserted.
+- **Also there:** risk scoring and MITRE ATT&CK mapping.
+
+![Phishing Mail Detector inside Seclyst](gallery/tool-phishing.png)
+
+### 5. RuleForge — *"Turn what we learned into a detection."*
+
+Cross-SIEM detection engineering with explicit, honest refusals.
+
+- **What it does:** authors, translates, tunes, and tests detection logic across
+  **Sigma, Splunk, Elastic, Sentinel KQL, QRadar, Chronicle, CrowdStrike, and
+  Wazuh**, using a deterministic evaluation engine and a visual pipeline editor.
+- **Why it matters:** the investigation closes the loop only when a rule exists so
+  the same activity is caught automatically next time.
+- **Its best feature is a refusal:** it will decline a translation it cannot make
+  correctly rather than emit a rule that looks valid and silently is not. Its
+  evaluator is three-valued, so an unknown field is never quietly treated as false.
+- **Deliberately dependency-free:** RuleForge is standard-library only, so it runs
+  inside a locked-down SOC where `pip install` is not available.
+
+![RuleForge inside Seclyst](gallery/tool-ruleforge.png)
+
+## What the console adds
+
+The five tools are the point. This is what makes them one product instead of five
+tabs:
+
+- **One launch.** A single command starts the console and all five tools; one
+  shutdown stops everything.
+- **Original interfaces, untouched.** Tool UIs are served by their own backends,
+  so REST calls, server-sent events, WebSockets, uploads, and downloads behave
+  exactly as they did standalone.
+- **Persistent tool state.** A tool mounts on first visit and stays mounted, so
+  switching tools keeps your route, form state, and live connections.
+- **Durable jobs.** Long-running analysis survives navigation and restarts through
+  a SQLite job queue with ordered events, leases, and recovery.
+- **One place for keys.** VirusTotal lookups from three different tools share one
+  broker with a global rate policy, de-duplication, caching, and a circuit breaker.
+- **Loopback-only by default.** Every listener is bound to your machine and guarded
+  by a per-launch access token. Active scanning, URL fetching, public submission,
+  and webhooks are all opt-in.
+
+Want the full picture — architecture, the API, storage, security model, and how to
+extend it? Read **[DETAILS.md](DETAILS.md)**.
+
+## Screenshots
+
+Every screen image lives in **[`gallery/`](gallery/)** — real captures of a running
+instance, plus the original interface of each engine, screen by screen.
 
 ## Requirements
 
-- Python 3.11 or newer
-- Node.js 20 or newer with npm
+- Python **3.11+**
+- Node.js **20+** with npm
 - A modern Chromium, Firefox, or Edge browser
-- Optional native utilities used by individual analyzers: Tesseract OCR, `libmagic`, `libzbar`
+- Optional native utilities used by individual analyzers: Tesseract OCR,
+  `libmagic`, `libzbar`
 
-## Installation
+## Install
 
 ```bash
 python scripts/setup.py
 ```
 
-The setup script creates `.venv`, installs the Python engines, installs locked Node dependencies, and builds both the Seclyst shell and the IOC interface.
+The setup script creates `.venv`, installs the Python engines, installs locked
+Node dependencies, and builds both the console and the IOC interface.
 
 ```bash
 python scripts/setup.py --dev          # add the test and browser-verification toolchain
-python scripts/setup.py --skip-python  # rebuild interfaces only
+python scripts/setup.py --skip-python  # rebuild the interfaces only
 ```
 
-## Running
+## Run
 
 Windows:
 
@@ -120,179 +184,63 @@ Seclyst opens at **http://127.0.0.1:7000/**.
 | Flag | Effect |
 | --- | --- |
 | `--no-browser` | Start without opening a browser window |
-| `--no-engines` | Serve the shell only, without starting engines |
-| `--port <n>` | Change the shell port from `7000` |
+| `--no-engines` | Serve the console only, without starting the tools |
+| `--port <n>` | Change the console port from `7000` |
 | `--host <h>` | Choose a loopback host (`127.0.0.1`, `localhost`, `::1`) |
 
-Engine ports are not standalone entry points while Seclyst is running. Each launch creates a random access token, the shell bootstraps HttpOnly engine sessions, supervisor probes authenticate with a private header, and direct unauthenticated requests to ports 7101–7105 are rejected.
+Tool ports (7101–7105) are not standalone entry points while Seclyst is running.
+Each launch mints a random access token, the console bootstraps private tool
+sessions, and direct unauthenticated requests to those ports are rejected.
 
-## Configuration
+## Configure
 
-Copy `.env.example` to `.env`. The file is loaded server-side and inherited by the engines; values are never exposed to the browser or written to local storage.
+Copy `.env.example` to `.env`. Values are read server-side and inherited by the
+tools; they are never exposed to the browser.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SECLYST_MALWARE_PORT` … `SECLYST_RULEFORGE_PORT` | `7101`–`7105` | Internal engine ports |
+| `SECLYST_MALWARE_PORT` … `SECLYST_RULEFORGE_PORT` | `7101`–`7105` | Internal tool ports |
 | `SECLYST_DURABLE_JOBS` | `true` | Durable job kernel (rollback switch) |
 | `SECLYST_PROVIDER_BROKER` | `true` | Shared provider broker (rollback switch) |
-| `SECLYST_JOB_LEASE_SECONDS` | `30` | Worker lease duration |
 | `SECLYST_DATABASE_PATH` | `data/seclyst.db` | Control-plane database |
-| `SECLYST_ARTIFACT_MAX_BYTES` | `104857600` | Per-artifact upload limit |
-| `VT_API_KEY`, `TRIAGE_API_KEY`, `URL_SCAN_API_KEY` | empty | Threat-intelligence credentials |
-| `SHODAN_API_KEY`, `GREYNOISE_API_KEY`, `IPINFO_API_KEY`, `ETHERSCAN_API_KEY` | empty | Enrichment credentials |
+| `VT_API_KEY`, `TRIAGE_API_KEY`, `URL_SCAN_API_KEY` | empty | Threat-intelligence keys |
+| `SHODAN_API_KEY`, `GREYNOISE_API_KEY`, `IPINFO_API_KEY`, `ETHERSCAN_API_KEY` | empty | Enrichment keys |
 | `ENABLE_ACTIVE_PORT_SCAN` | `false` | Active network scanning |
 | `ENABLE_URL_CONTENT_FETCH` | `false` | Outbound URL fetching |
 | `ENABLE_PUBLIC_URL_SUBMISSION` | `false` | Public sample submission |
 | `WEBHOOKS_ENABLED` | `false` | Outbound webhooks |
 
-Active and external actions are disabled by default. Adding a provider key does not opt a sample into public submission.
-
-Credentials can also be stored in the operating-system keyring instead of `.env`:
+Secrets can live in your OS keyring instead of `.env`:
 
 ```bash
 .venv/bin/python -m seclyst_backend credentials set virustotal
 .venv/bin/python -m seclyst_backend credentials status
 ```
 
-Settings shows the detected key source and environment variable name for every provider.
+The **Settings** screen shows which source each key came from. Full details are in
+[DETAILS.md](DETAILS.md#configuration-and-credentials).
 
-## Data layout
-
-| Service | Port | Interface |
-| --- | ---: | --- |
-| Seclyst shell | 7000 | Unified workbench |
-| Malware Analyzer | 7101 | Original Malware Analyzer UI |
-| IOC Lookup | 7102 | Original IOC React UI |
-| Event Analyzer | 7103 | Original Event Analyzer UI |
-| Phishing Detector | 7104 | Original Phishing UI |
-| RuleForge | 7105 | Original RuleForge UI |
-
-All mutable state is written under `data/`, which is excluded from version control:
-
-```
-data/
-├── artifacts/     # content-addressed uploads
-├── events/        # EVTX databases and uploads
-├── ioc/           # IOC database and cache
-├── malware/       # scan and cache databases
-├── phishing/      # scan database
-├── ruleforge/     # rule history
-├── logs/          # per-engine logs
-└── seclyst.db     # control-plane database
-```
-
-## API
-
-The workbench and engines share one FastAPI control plane.
-
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /api/platform/status` | Measured engine health and configured tool URLs |
-| `GET /api/platform/summary` | Recent work aggregated from engine history |
-| `/api/v1/jobs` | Durable job creation, status, events, and actions |
-| `/api/v1/artifacts` | Artifact metadata and downloads |
-| `/api/v1/runs` | Run history |
-| `/api/v1/intake` | Email-to-detection intake |
-| `/api/v1/settings` | Provider and engine configuration |
-| `/internal/v1` | Engine-to-platform channel (not in the public schema) |
-
-## Security model
-
-- All listeners bind to loopback only.
-- Cross-origin tool frames are sandboxed, so tool scripts cannot read shell state.
-- A per-launch token gates every engine port; direct unauthenticated access is rejected.
-- Provider secrets stay server-side and are withheld from engines when the broker is active.
-- Artifacts are never rendered inline; downloads use attachment disposition and enforce size limits.
-- Active scanning, URL fetching, public submission, and webhooks are opt-in.
-
-## Development
-
-Run the platform suite:
-
-```bash
-.venv/bin/python -m pytest
-.venv/bin/python -m ruff check .
-```
-
-Build and test the frontends:
-
-```bash
-npm --prefix web run build
-npm --prefix web test
-npm --prefix engines/ioc/ui test
-npm --prefix engines/ioc/ui run build
-```
-
-Run the complete verification chain:
-
-```bash
-.venv/bin/python scripts/verify.py
-```
-
-On Windows, replace `.venv/bin/python` with `.venv\Scripts\python.exe`. The same chain runs in CI on every push and pull request (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
-
-## Repository layout
-
-Three directories hold code, and nothing is duplicated between them:
+## Project layout
 
 | Path | What lives there |
 | --- | --- |
-| `web/` | The workbench UI. One React + Vite application. |
-| `seclyst_backend/` | The platform backend: HTTP API, durable jobs, provider broker, artifacts, database, and Alembic migrations. |
-| `engines/` | The five analysis tools. Code and tests only — no UI, no docs, no manifests. |
-| `tests/` | Platform test suite. Each engine keeps its own suite inside its directory. |
+| `web/` | The console UI — one React + Vite app. |
+| `seclyst_backend/` | The platform backend: HTTP API, durable jobs, provider broker, artifacts, database, and schema migrations. |
+| `engines/` | The five tools. Code and tests only — no UI, no docs, no manifests. |
+| `tests/` | Platform test suite. Each tool keeps its own suite inside its folder. |
 | `scripts/` | Setup, verification, and screenshot tooling. |
-| `docs/` | Architecture, engines, API, operations, and the screenshot gallery. |
+| `gallery/` | Screenshots: the console, and each tool's original interface. |
 | `data/` | Local state: databases, uploads, logs. Git-ignored. |
-
-```
-Seclyst/
-├── web/                        # the workbench UI
-│   └── src/
-├── seclyst_backend/            # the platform backend
-│   ├── api/                    # HTTP surface
-│   ├── database/               # models, session, migration runner
-│   ├── jobs/                   # durable job kernel
-│   ├── providers/              # threat-intelligence broker
-│   ├── integration/            # engine access gate and control client
-│   ├── migrations/             # control-plane schema migrations
-│   ├── app.py                  # FastAPI application
-│   └── server.py               # supervisor, CLI, static shell server
-├── engines/                    # the five analysis tools
-│   ├── ioc/  malware/  phishing/  events/  ruleforge/
-├── tests/                      # platform tests
-├── scripts/                    # setup, verify, capture
-├── docs/                       # documentation and screenshots
-├── run.py                      # entry point
-└── data/                       # local state, git-ignored
-```
-
-Two names used to collide and no longer do: `seclyst_backend/integration/` holds the
-helpers that let an engine talk to the platform, while `engines/` holds the five
-tools themselves.
-
-
-## Troubleshooting
-
-| Symptom | Cause and fix |
-| --- | --- |
-| A tool shows as offline | Check `data/logs/<tool>.log`; the other engines keep running |
-| Engine port already in use | Seclyst reports the conflict instead of attaching to an unknown process; change the port in `.env` |
-| Blank shell page | The shell was not built; run `python scripts/setup.py --skip-python` |
-| Missing OCR or magic errors | Install the optional native utilities listed in Requirements |
-
-See [`docs/OPERATIONS.md`](docs/OPERATIONS.md) for recovery and credential procedures.
+| `DETAILS.md` | The deep-dive reference for everything above. |
 
 ## Documentation
 
-- [Documentation index](docs/README.md) — every page, and the order to read them in
-- [Architecture](docs/ARCHITECTURE.md) — process model, browser boundary, failure model
-- [Engines](docs/ENGINES.md) — the five engines, their contracts, and their boundaries
-- [Operations](docs/OPERATIONS.md) — runtime, recovery, credentials, storage
-- [Sources](docs/SOURCES.md) — engine provenance and integrity notes
-- [API](docs/API.md) — the platform HTTP surface
-- [Screenshots](docs/screenshots/) — real captures and how to regenerate them
+- **[DETAILS.md](DETAILS.md)** — the deep-dive: every tool in depth, the platform
+  design, the HTTP API, configuration, storage, security, operations, and how to
+  add an engine.
+- **[gallery/](gallery/)** — screenshots of the console and the original tools.
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE). All five engines are original work by the repository owner.
+MIT. See [`LICENSE`](LICENSE). All five tools are original work by the repository
+owner.

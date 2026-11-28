@@ -1,7 +1,7 @@
-# Screenshots
+# Gallery
 
-Every screen image lives here: real captures of the running Seclyst product, and
-the original interface of each engine, one folder per engine.
+Every screen image lives here: real captures of the running Seclyst console, and
+the original interface of each of the five tools, one folder per tool.
 
 ## The running product
 

@@ -44,8 +44,8 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=Path,
-        default=ROOT / "docs" / "screenshots",
-        help="directory to write the PNGs into (default: docs/screenshots)",
+        default=ROOT / "gallery",
+        help="directory to write the PNGs into (default: gallery)",
     )
     parser.add_argument("--width", type=int, default=1440)
     parser.add_argument("--height", type=int, default=1000)

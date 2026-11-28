@@ -10,13 +10,13 @@ Nothing else.
 
 No README, no requirements file, no license, no screenshots, no logo, no
 configuration template, and no separate interface. If a change needs
-documentation, it goes in `docs/`. If it needs a dependency, it goes in the root
-`requirements.txt` under that engine's heading.
+documentation, it goes in `DETAILS.md`. If it needs a dependency, it goes in the
+root `requirements.txt` under that engine's heading.
 
 Two files are deliberate exceptions and both are explained in
-[docs/ENGINES.md](docs/ENGINES.md): `engines/<id>/run.py` is the entrypoint the
-supervisor spawns, and `engines/ioc/pyproject.toml` carries pytest configuration
-the IOC suite needs.
+[DETAILS.md](DETAILS.md#the-engine-contract): `engines/<id>/run.py` is the
+entrypoint the supervisor spawns, and `engines/ioc/pyproject.toml` carries pytest
+configuration the IOC suite needs.
 
 ## Setting up
 
@@ -89,12 +89,12 @@ or `docs`.
 
 ## Documentation
 
-- User-facing documentation lives in `docs/` and the root `README.md`.
+- User-facing documentation lives in the root `README.md` and in `DETAILS.md`.
 - Every relative link must resolve. A broken link in a README is a broken repo.
 
 ## Adding or replacing an engine
 
-The full procedure is at the end of [docs/ENGINES.md](docs/ENGINES.md#adding-or-replacing-an-engine).
+The full procedure is in [DETAILS.md](DETAILS.md#adding-or-replacing-a-tool).
 In short: implement the engine, serve `GET /api/health`, honour the access token,
 register a `ToolSpec` in `seclyst_backend/server.py`, add a `TOOLS_REGISTRY` entry in
 `web/src/data/workspace.ts`, add dependencies to the root manifest, and
