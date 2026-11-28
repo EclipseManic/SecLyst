@@ -5,10 +5,10 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from seclyst.app import create_app
-from seclyst.auth import AuthService, PasswordStore, SessionManager
-from seclyst.database.session import Database
-from seclyst.jobs.service import JobService
+from seclyst_backend.app import create_app
+from seclyst_backend.auth import AuthService, PasswordStore, SessionManager
+from seclyst_backend.database.session import Database
+from seclyst_backend.jobs.service import JobService
 
 PASSWORD = "correct-horse-battery-staple"
 
@@ -29,7 +29,7 @@ def make_client(tmp_path, *, auth: AuthService | None) -> TestClient:
         job_service=JobService(db),
         durable_jobs_enabled=True,
         web_root=web,
-        runtime_dir=tmp_path / "runtime",
+        data_dir=tmp_path / "data",
         auth=auth,
     )
     return TestClient(app)
@@ -73,7 +73,7 @@ def test_auth_service_reports_anonymous_state(tmp_path) -> None:
 
 
 def test_control_plane_gates_api_when_auth_enabled(tmp_path) -> None:
-    auth = AuthService(tmp_path / "runtime", enabled=True)
+    auth = AuthService(tmp_path / "data", enabled=True)
     api = make_client(tmp_path, auth=auth)
 
     blocked = api.get("/api/v1/settings")
@@ -101,7 +101,7 @@ def test_control_plane_gates_api_when_auth_enabled(tmp_path) -> None:
 
 
 def test_control_plane_login_flow(tmp_path) -> None:
-    auth = AuthService(tmp_path / "runtime", enabled=True)
+    auth = AuthService(tmp_path / "data", enabled=True)
     api = make_client(tmp_path, auth=auth)
 
     # Signing in before a password exists is a setup problem, not a bad login.
@@ -117,7 +117,7 @@ def test_control_plane_login_flow(tmp_path) -> None:
 
 
 def test_change_password_requires_current_and_rotates_session(tmp_path) -> None:
-    auth = AuthService(tmp_path / "runtime", enabled=True)
+    auth = AuthService(tmp_path / "data", enabled=True)
     api = make_client(tmp_path, auth=auth)
     api.post("/api/v1/auth/setup", json={"password": PASSWORD})
 
@@ -144,7 +144,7 @@ def test_control_plane_is_open_when_auth_is_not_attached(tmp_path) -> None:
 
 
 def test_disabled_auth_leaves_the_api_open(tmp_path) -> None:
-    auth = AuthService(tmp_path / "runtime", enabled=False)
+    auth = AuthService(tmp_path / "data", enabled=False)
     api = make_client(tmp_path, auth=auth)
     assert api.get("/api/v1/settings").status_code == 200
     assert api.get("/api/v1/auth/status").json()["required"] is False

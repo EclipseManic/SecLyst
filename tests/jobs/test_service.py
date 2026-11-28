@@ -6,10 +6,10 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import func, select
 
-from seclyst.database.models import JobConsumer, JobEvent
-from seclyst.database.session import Database
-from seclyst.jobs.service import JobConflict, JobCreate, JobInputValue, JobService, utcnow
-from seclyst.jobs.states import JobStatus
+from seclyst_backend.database.models import JobConsumer, JobEvent
+from seclyst_backend.database.session import Database
+from seclyst_backend.jobs.service import JobConflict, JobCreate, JobInputValue, JobService, utcnow
+from seclyst_backend.jobs.states import JobStatus
 
 
 @pytest.fixture

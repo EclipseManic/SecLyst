@@ -4,8 +4,8 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect, text
 
-from seclyst.database.migrations import upgrade_database
-from seclyst.database.session import Database
+from seclyst_backend.database.migrations import upgrade_database
+from seclyst_backend.database.session import Database
 
 
 def test_initial_migration_creates_job_kernel(tmp_path) -> None:
@@ -33,7 +33,7 @@ def test_initial_migration_can_downgrade_cleanly(tmp_path) -> None:
     upgrade_database(path, backup=False)
     root = Path(__file__).resolve().parents[2]
     config = Config(str(root / "alembic.ini"))
-    config.set_main_option("script_location", str(root / "migrations"))
+    config.set_main_option("script_location", str(root / "seclyst_backend" / "migrations"))
     config.set_main_option("sqlalchemy.url", f"sqlite+pysqlite:///{path.as_posix()}")
     command.downgrade(config, "base")
     database = Database(path)

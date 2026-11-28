@@ -4,10 +4,10 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from seclyst.database.models import ProviderRequest
-from seclyst.database.session import Database
-from seclyst.providers.broker import ProviderBroker, ProviderRequestCommand
-from seclyst.providers.policies import ProviderPolicyValue
+from seclyst_backend.database.models import ProviderRequest
+from seclyst_backend.database.session import Database
+from seclyst_backend.providers.broker import ProviderBroker, ProviderRequestCommand
+from seclyst_backend.providers.policies import ProviderPolicyValue
 
 
 class Credentials:

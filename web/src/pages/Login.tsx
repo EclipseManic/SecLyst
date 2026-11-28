@@ -135,7 +135,7 @@ export function Login({
           <p className="auth-hint ui-meta">
             {isSetup
               ? 'Minimum 12 characters. There is no recovery address: this machine is the recovery.'
-              : 'Forgot it? Stop Seclyst, delete runtime/auth.json, and start again to set a new one.'}
+              : 'Forgot it? Stop Seclyst, delete data/auth.json, and start again to set a new one.'}
           </p>
         </form>
       </section>

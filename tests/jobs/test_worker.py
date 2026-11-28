@@ -1,7 +1,7 @@
-from seclyst.database.session import Database
-from seclyst.jobs.service import JobCreate, JobService
-from seclyst.jobs.states import JobStatus
-from seclyst.jobs.worker import JobResult, JobWorker
+from seclyst_backend.database.session import Database
+from seclyst_backend.jobs.service import JobCreate, JobService
+from seclyst_backend.jobs.states import JobStatus
+from seclyst_backend.jobs.worker import JobResult, JobWorker
 
 
 def test_worker_completes_registered_handler(tmp_path) -> None:

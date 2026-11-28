@@ -10,7 +10,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from seclyst.server import Supervisor, build_http_server
+from seclyst_backend.server import Supervisor, build_http_server
 
 
 @pytest.fixture(scope="module")

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
-from seclyst.app import create_app
-from seclyst.database.session import Database
-from seclyst.jobs.service import JobService
+from seclyst_backend.app import create_app
+from seclyst_backend.database.session import Database
+from seclyst_backend.jobs.service import JobService
 
 
 class Supervisor:
@@ -20,7 +20,7 @@ def test_tool_settings_are_central_and_persistent(tmp_path):
         job_service=JobService(db),
         durable_jobs_enabled=True,
         web_root=web,
-        runtime_dir=tmp_path / "runtime",
+        data_dir=tmp_path / "data",
     )
     api = TestClient(app)
     saved = api.put("/api/v1/settings/tools/events", json={"values": {"page_limit": 500}})

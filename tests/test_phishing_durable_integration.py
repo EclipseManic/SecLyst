@@ -6,10 +6,10 @@ import time
 import httpx
 from uvicorn import Config, Server
 
-from seclyst.app import create_app
-from seclyst.database.session import Database
-from seclyst.jobs.service import JobService
-from seclyst.server import Supervisor
+from seclyst_backend.app import create_app
+from seclyst_backend.database.session import Database
+from seclyst_backend.jobs.service import JobService
+from seclyst_backend.server import Supervisor
 
 
 SAMPLE_EMAIL = b"""From: Security Team <security@example.com>

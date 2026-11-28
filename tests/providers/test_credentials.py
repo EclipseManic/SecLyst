@@ -1,4 +1,4 @@
-from seclyst.providers import credentials
+from seclyst_backend.providers import credentials
 
 
 def test_environment_credential_fallback(monkeypatch) -> None:

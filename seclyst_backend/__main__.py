@@ -26,7 +26,7 @@ def credentials_command(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(prog="python -m seclyst")
+    parser = argparse.ArgumentParser(prog="python -m seclyst_backend")
     commands = parser.add_subparsers(dest="command", required=True)
     credentials = commands.add_parser("credentials", help="manage provider credentials")
     actions = credentials.add_subparsers(dest="action", required=True)

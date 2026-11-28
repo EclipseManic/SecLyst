@@ -2,8 +2,8 @@ import io
 
 import pytest
 
-from seclyst.artifacts import ArtifactConflict, ArtifactLimitExceeded, ArtifactStore
-from seclyst.database.session import Database
+from seclyst_backend.artifacts import ArtifactConflict, ArtifactLimitExceeded, ArtifactStore
+from seclyst_backend.database.session import Database
 
 
 def test_artifacts_are_content_addressed_and_deduplicated(tmp_path) -> None:

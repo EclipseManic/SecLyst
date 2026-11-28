@@ -256,7 +256,7 @@ class ToolSettings(BaseModel):
 
 
 def config_path(request: Request) -> Path:
-    return request.app.state.runtime_dir / "settings.json"
+    return request.app.state.data_dir / "settings.json"
 
 
 def empty() -> dict:

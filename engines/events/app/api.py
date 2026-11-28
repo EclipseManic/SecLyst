@@ -22,7 +22,7 @@ from app.utils import has_evtx_magic
 from app import db
 
 try:
-    from seclyst.integration.client import EngineControlClient
+    from seclyst_backend.integration.client import EngineControlClient
 except ImportError:
     EngineControlClient = None
 
@@ -38,7 +38,7 @@ def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config["MAX_CONTENT_LENGTH"] = cfg.max_request_mb * 1024 * 1024
     try:
-        from seclyst.integration.access import install_flask_access
+        from seclyst_backend.integration.access import install_flask_access
         install_flask_access(app)
     except ImportError:
         pass

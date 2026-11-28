@@ -20,7 +20,7 @@ try:
 except ImportError as exc:  # pragma: no cover - environment guidance
     raise SystemExit("Install requirements-dev.txt to run browser verification.") from exc
 
-from seclyst.server import Supervisor, WEB_DIST, build_http_server  # noqa: E402
+from seclyst_backend.server import Supervisor, WEB_DIST, build_http_server  # noqa: E402
 
 
 TOOLS = ("ioc", "malware", "phishing", "events", "ruleforge")
@@ -179,7 +179,7 @@ def main() -> int:
         return 0
     except Exception:
         if driver is not None:
-            output = ROOT / "runtime" / "browser-failure.png"
+            output = ROOT / "data" / "browser-failure.png"
             output.parent.mkdir(parents=True, exist_ok=True)
             driver.save_screenshot(str(output))
             print(f"Failure screenshot: {output}", file=sys.stderr)
