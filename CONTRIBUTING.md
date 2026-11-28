@@ -90,7 +90,6 @@ or `docs`.
 ## Documentation
 
 - User-facing documentation lives in `docs/` and the root `README.md`.
-- Historical design records live in `docs/internal/` and are not updated.
 - Every relative link must resolve. A broken link in a README is a broken repo.
 
 ## Adding or replacing an engine

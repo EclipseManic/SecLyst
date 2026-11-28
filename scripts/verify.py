@@ -22,11 +22,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skip-browser", action="store_true")
     parser.add_argument("--skip-audit", action="store_true")
-    parser.add_argument(
-        "--verify-sources",
-        action="store_true",
-        help="also compare sibling source directories with the original copy baseline",
-    )
     args = parser.parse_args()
 
     python = sys.executable
@@ -63,15 +58,6 @@ def main() -> int:
     if not args.skip_browser:
         run([python, "scripts/verify_ui.py"])
     run([python, "scripts/verify_cli.py"])
-
-    if args.verify_sources:
-        combined_workspace = ROOT.parent
-        if not all((combined_workspace / name).exists() for name in (
-            "secconflux", "Malware Analyzer", "ioc-platform", "Event-Analyzer",
-            "Phishing-Mail-Detector", "RuleForge",
-        )):
-            raise SystemExit("Sibling source directories are unavailable for source verification.")
-        run([python, "scripts/source_snapshot.py"])
 
     print("\nAll Seclyst verification checks passed.")
     return 0
