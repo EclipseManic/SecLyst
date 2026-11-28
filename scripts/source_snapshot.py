@@ -23,9 +23,6 @@ SOURCES = {
 
 EXCLUDED_DIRECTORIES = {
     ".git",
-    ".hallmark",
-    ".kilo",
-    ".oxcode-memory",
     ".pytest_cache",
     "__pycache__",
     "dist",

@@ -33,9 +33,6 @@ uploads/
 *.log
 
 # Local tooling and editor state
-.kilo/
-.hallmark/
-.oxcode-memory/
 .vscode/
 .idea/
 .cache/
@@ -75,12 +72,6 @@ undefined/
 *.tsbuildinfo
 data-test
 live_probe_output.json
-
-# Assistant and browser-automation working state
-.mimocode/
-.playwright-mcp/
-.opencode/
-oxcode.hooks.json
 
 # Editor and operating system extras
 desktop.ini
