@@ -1,15 +1,3 @@
-/* Hallmark · shape: app screen · genre: modern-minimal · theme: Cobalt (deal 1/3, seed security-analyst-console-opens-23dc·6729be46·2026-10-31·r0) · redesign: full
- * nav: the shell's own rail, kept · signature: the welcome hero paired with a live status panel, and the five-engine "what it does / use it when" guide · states: full, empty, filtered-empty, disabled, pressed
- * axes: light/grotesk-sans/cool · posture: restrained · contrast: pass · modes: light+dark · v2.0.0 */
-/* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V4 · weakest: S — a five-tool console could belong to any security product; led with a plain-language welcome and a what/when guide that makes the workspace explain itself before it asks for work */
-/* Hallmark · waive 47b · one frame per hosted tool, the tool's own interface inside · the frame is the platform's whole architecture, not a device costume */
-/* Hallmark · answered F24 · cards carry the hairline rule and no shadow; the keycap's 3px bottom edge is an edge, not a soft shadow */
-/* Hallmark · waive 39b · the tall ones are whole rows and panels a person clicks (a 93px activity row, a 113px metric cell, a 68px ledger row), each holding controls of 32 to 38px · the guard's control range holds on every control inside them */
-/* Hallmark · the field is a dot grid on the 8 by 16 cell, not a character field: a ground rather than text, so no contrast threshold is spent on decoration (40) */
-/* Hallmark · reworded "✅ API Key verified (HTTP 200 OK)" to "Stored in this browser. No provider request was made." · the button never made a request, and an invented verification is a claim nobody measured */
-/* Hallmark · reworded "Test Connection" to "Test connection" inside the probe toggle's toast · 19 names the stock label */
-/* Hallmark · dropped the rail's width transition · 10a is floor, and a collapse that animates width forces layout on every frame, so it snaps */
-
 /* ==========================================================================
    The system
    ==========================================================================
