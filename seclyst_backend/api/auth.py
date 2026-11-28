@@ -1,7 +1,7 @@
 """Authentication endpoints for the single-user SecLyst control plane.
 
 These routes are the only ones reachable without a session (see the gate in
-:mod:`seclyst.app`). They are intentionally small: check status, set the
+:mod:`seclyst_backend.app`). They are intentionally small: check status, set the
 password on first run, sign in, sign out, and change the password.
 """
 

@@ -69,8 +69,8 @@ flowchart LR
     B -->|sandboxed frames| T5[RuleForge :7105]
 
     S --> C[FastAPI control plane]
-    C --> J[(Job kernel<br/>runtime/seclyst.db)]
-    C --> A[(Artifact store<br/>runtime/artifacts)]
+    C --> J[(Job kernel<br/>data/seclyst.db)]
+    C --> A[(Artifact store<br/>data/artifacts)]
     C --> P[Provider broker]
 
     T1 --> P
@@ -136,7 +136,7 @@ Copy `.env.example` to `.env`. The file is loaded server-side and inherited by t
 | `SECLYST_DURABLE_JOBS` | `true` | Durable job kernel (rollback switch) |
 | `SECLYST_PROVIDER_BROKER` | `true` | Shared provider broker (rollback switch) |
 | `SECLYST_JOB_LEASE_SECONDS` | `30` | Worker lease duration |
-| `SECLYST_DATABASE_PATH` | `runtime/seclyst.db` | Control-plane database |
+| `SECLYST_DATABASE_PATH` | `data/seclyst.db` | Control-plane database |
 | `SECLYST_ARTIFACT_MAX_BYTES` | `104857600` | Per-artifact upload limit |
 | `VT_API_KEY`, `TRIAGE_API_KEY`, `URL_SCAN_API_KEY` | empty | Threat-intelligence credentials |
 | `SHODAN_API_KEY`, `GREYNOISE_API_KEY`, `IPINFO_API_KEY`, `ETHERSCAN_API_KEY` | empty | Enrichment credentials |
@@ -150,13 +150,13 @@ Active and external actions are disabled by default. Adding a provider key does 
 Credentials can also be stored in the operating-system keyring instead of `.env`:
 
 ```bash
-.venv/bin/python -m seclyst credentials set virustotal
-.venv/bin/python -m seclyst credentials status
+.venv/bin/python -m seclyst_backend credentials set virustotal
+.venv/bin/python -m seclyst_backend credentials status
 ```
 
 Settings shows the detected key source and environment variable name for every provider.
 
-## Runtime layout
+## Data layout
 
 | Service | Port | Interface |
 | --- | ---: | --- |
@@ -167,10 +167,10 @@ Settings shows the detected key source and environment variable name for every p
 | Phishing Detector | 7104 | Original Phishing UI |
 | RuleForge | 7105 | Original RuleForge UI |
 
-All mutable state is written under `runtime/`, which is excluded from version control:
+All mutable state is written under `data/`, which is excluded from version control:
 
 ```
-runtime/
+data/
 ├── artifacts/     # content-addressed uploads
 ├── events/        # EVTX databases and uploads
 ├── ioc/           # IOC database and cache
@@ -238,37 +238,36 @@ Three directories hold code, and nothing is duplicated between them:
 | Path | What lives there |
 | --- | --- |
 | `web/` | The workbench UI. One React + Vite application. |
-| `seclyst/` | The platform backend: HTTP API, durable jobs, provider broker, artifacts, database. |
+| `seclyst_backend/` | The platform backend: HTTP API, durable jobs, provider broker, artifacts, database, and Alembic migrations. |
 | `engines/` | The five analysis tools. Code and tests only — no UI, no docs, no manifests. |
-| `migrations/` | Alembic migrations for the control-plane database. |
 | `tests/` | Platform test suite. Each engine keeps its own suite inside its directory. |
 | `scripts/` | Setup, verification, and screenshot tooling. |
 | `docs/` | Architecture, engines, API, operations, and the screenshot gallery. |
-| `runtime/` | Local state: databases, uploads, logs. Git-ignored. |
+| `data/` | Local state: databases, uploads, logs. Git-ignored. |
 
 ```
 Seclyst/
-├── web/                    # the workbench UI
+├── web/                        # the workbench UI
 │   └── src/
-├── seclyst/                # the platform backend
-│   ├── api/                # HTTP surface
-│   ├── database/           # models, session, migration runner
-│   ├── jobs/               # durable job kernel
-│   ├── providers/          # threat-intelligence broker
-│   ├── integration/        # engine access gate and control client
-│   ├── app.py              # FastAPI application
-│   └── server.py           # supervisor, CLI, static shell server
-├── engines/                # the five analysis tools
+├── seclyst_backend/            # the platform backend
+│   ├── api/                    # HTTP surface
+│   ├── database/               # models, session, migration runner
+│   ├── jobs/                   # durable job kernel
+│   ├── providers/              # threat-intelligence broker
+│   ├── integration/            # engine access gate and control client
+│   ├── migrations/             # control-plane schema migrations
+│   ├── app.py                  # FastAPI application
+│   └── server.py               # supervisor, CLI, static shell server
+├── engines/                    # the five analysis tools
 │   ├── ioc/  malware/  phishing/  events/  ruleforge/
-├── migrations/             # control-plane schema migrations
-├── tests/                  # platform tests
-├── scripts/                # setup, verify, capture
-├── docs/                   # documentation and screenshots
-├── run.py                  # entry point
-└── runtime/                # local state, git-ignored
+├── tests/                      # platform tests
+├── scripts/                    # setup, verify, capture
+├── docs/                       # documentation and screenshots
+├── run.py                      # entry point
+└── data/                       # local state, git-ignored
 ```
 
-Two names used to collide and no longer do: `seclyst/integration/` holds the
+Two names used to collide and no longer do: `seclyst_backend/integration/` holds the
 helpers that let an engine talk to the platform, while `engines/` holds the five
 tools themselves.
 
@@ -277,7 +276,7 @@ tools themselves.
 
 | Symptom | Cause and fix |
 | --- | --- |
-| A tool shows as offline | Check `runtime/logs/<tool>.log`; the other engines keep running |
+| A tool shows as offline | Check `data/logs/<tool>.log`; the other engines keep running |
 | Engine port already in use | Seclyst reports the conflict instead of attaching to an unknown process; change the port in `.env` |
 | Blank shell page | The shell was not built; run `python scripts/setup.py --skip-python` |
 | Missing OCR or magic errors | Install the optional native utilities listed in Requirements |

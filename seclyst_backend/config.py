@@ -20,8 +20,8 @@ def env_bool(name: str, default: bool) -> bool:
 @dataclass(frozen=True)
 class Settings:
     root: Path = ROOT
-    runtime_dir: Path = ROOT / "runtime"
-    database_path: Path = ROOT / "runtime" / "seclyst.db"
+    data_dir: Path = ROOT / "data"
+    database_path: Path = ROOT / "data" / "seclyst.db"
     durable_jobs_enabled: bool = False
     provider_broker_enabled: bool = False
     artifact_max_bytes: int = 100 * 1024 * 1024
@@ -31,12 +31,12 @@ class Settings:
 
     @classmethod
     def from_environment(cls) -> "Settings":
-        runtime_dir = Path(os.getenv("SECLYST_RUNTIME_DIR", str(ROOT / "runtime"))).expanduser().resolve()
+        data_dir = Path(os.getenv("SECLYST_DATA_DIR", str(ROOT / "data"))).expanduser().resolve()
         database_path = Path(
-            os.getenv("SECLYST_DATABASE_PATH", str(runtime_dir / "seclyst.db"))
+            os.getenv("SECLYST_DATABASE_PATH", str(data_dir / "seclyst.db"))
         ).expanduser().resolve()
         return cls(
-            runtime_dir=runtime_dir,
+            data_dir=data_dir,
             database_path=database_path,
             durable_jobs_enabled=env_bool("SECLYST_DURABLE_JOBS", True),
             provider_broker_enabled=env_bool("SECLYST_PROVIDER_BROKER", True),

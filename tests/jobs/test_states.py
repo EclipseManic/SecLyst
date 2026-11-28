@@ -1,6 +1,6 @@
 import pytest
 
-from seclyst.jobs.states import ALLOWED_TRANSITIONS, InvalidTransition, JobStatus, require_transition
+from seclyst_backend.jobs.states import ALLOWED_TRANSITIONS, InvalidTransition, JobStatus, require_transition
 
 
 def test_every_documented_transition_is_accepted() -> None:

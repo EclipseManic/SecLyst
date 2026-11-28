@@ -1,6 +1,6 @@
 import httpx
 
-from seclyst.providers.adapters.virustotal import VirusTotalAdapter
+from seclyst_backend.providers.adapters.virustotal import VirusTotalAdapter
 
 
 def adapter_for(handler) -> VirusTotalAdapter:

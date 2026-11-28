@@ -10,20 +10,20 @@ is allowed to contain.
 
 ## How an engine runs
 
-`seclyst/server.py` holds the supervisor. At startup it starts one child process
+`seclyst_backend/server.py` holds the supervisor. At startup it starts one child process
 per engine:
 
 | Engine | Id | Port variable | Default port | Data directory |
 | --- | --- | --- | --- | --- |
-| Malware Analyzer | `malware` | `SECLYST_MALWARE_PORT` | 7101 | `runtime/malware/` |
-| IOC Lookup | `ioc` | `SECLYST_IOC_PORT` | 7102 | `runtime/ioc/` |
-| Event Analyzer | `events` | `SECLYST_EVENTS_PORT` | 7103 | `runtime/events/` |
-| Phishing Detector | `phishing` | `SECLYST_PHISHING_PORT` | 7104 | `runtime/phishing/` |
-| RuleForge | `ruleforge` | `SECLYST_RULEFORGE_PORT` | 7105 | `runtime/ruleforge/` |
+| Malware Analyzer | `malware` | `SECLYST_MALWARE_PORT` | 7101 | `data/malware/` |
+| IOC Lookup | `ioc` | `SECLYST_IOC_PORT` | 7102 | `data/ioc/` |
+| Event Analyzer | `events` | `SECLYST_EVENTS_PORT` | 7103 | `data/events/` |
+| Phishing Detector | `phishing` | `SECLYST_PHISHING_PORT` | 7104 | `data/phishing/` |
+| RuleForge | `ruleforge` | `SECLYST_RULEFORGE_PORT` | 7105 | `data/ruleforge/` |
 
 Each child is started as `python run.py` with `cwd=engines/<id>`, a private
 environment, and a loopback port. The supervisor considers an engine online when
-`GET /api/health` answers. Standard output goes to `runtime/logs/<id>.log`.
+`GET /api/health` answers. Standard output goes to `data/logs/<id>.log`.
 
 Every engine receives the same platform contract:
 
@@ -32,7 +32,7 @@ Every engine receives the same platform contract:
   answers 403.
 - **Job reporting.** When durable jobs are enabled, an engine registers its work
   with the control plane and reports progress, completion, and failure through
-  `seclyst/integration/client.py`.
+  `seclyst_backend/integration/client.py`.
 - **Provider brokering.** When the provider broker is enabled, engine API keys
   are held by the platform and requests are proxied through it, so keys never
   live in engine configuration.
@@ -156,7 +156,7 @@ Collection endpoint used by the dashboard: `GET /api/history?limit=20`.
 
 1. Implement the engine under `engines/<id>/` with `run.py` as its entrypoint.
 2. Serve `GET /api/health` and honour the access token header.
-3. Add a `ToolSpec` to `seclyst/server.py` with its port variable and default.
+3. Add a `ToolSpec` to `seclyst_backend/server.py` with its port variable and default.
 4. Add its entry to `TOOLS_REGISTRY` in `web/src/data/workspace.ts`.
 5. Add its dependencies to the root `requirements.txt` under its own heading.
 6. Document it on this page.

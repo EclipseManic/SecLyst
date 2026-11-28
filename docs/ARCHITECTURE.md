@@ -4,7 +4,7 @@
 
 `run.py` starts the FastAPI control plane and its local service supervisor. The supervisor creates runtime directories, starts five copied engines as child processes, serves the built Seclyst shell, and stops every child during shutdown.
 
-The control plane owns a separate SQLite WAL database at `runtime/seclyst.db`. Alembic migrations create the durable job queue and ordered event journal. Malware and Phishing register platform jobs through per-engine authenticated loopback channels, publish ordered progress, renew worker leases, and record durable completion or failure. Disabling `SECLYST_DURABLE_JOBS` returns both engines to their standalone in-memory lifecycle without changing their public APIs.
+The control plane owns a separate SQLite WAL database at `data/seclyst.db`. Alembic migrations create the durable job queue and ordered event journal. Malware and Phishing register platform jobs through per-engine authenticated loopback channels, publish ordered progress, renew worker leases, and record durable completion or failure. Disabling `SECLYST_DURABLE_JOBS` returns both engines to their standalone in-memory lifecycle without changing their public APIs.
 
 The provider broker owns VirusTotal credentials, global rate policy, concurrency, circuit state, request audit rows, response caching, and single-flight deduplication across Malware, Phishing, and IOC. Copied engines receive no VirusTotal secret in broker mode. Their existing parsers still normalize provider payloads, so standalone mode remains compatible.
 
@@ -38,7 +38,7 @@ Unavailable tools and collections remain explicitly unavailable. No fixture fall
 
 ## Data Boundary
 
-The supervisor redirects mutable engine state into `runtime/<tool>/`:
+The supervisor redirects mutable engine state into `data/<tool>/`:
 
 - Malware scan and request-cache databases
 - IOC SQLite data and response cache
@@ -63,4 +63,4 @@ Original interface source is otherwise retained. Seclyst-specific UI belongs onl
 
 ## Failure Model
 
-One engine can fail without preventing Seclyst or the other tools from starting. The workbench shows the failed engine as offline and points to `runtime/logs/<tool>.log`. Occupied engine ports are reported rather than silently attaching to an unknown process.
+One engine can fail without preventing Seclyst or the other tools from starting. The workbench shows the failed engine as offline and points to `data/logs/<tool>.log`. Occupied engine ports are reported rather than silently attaching to an unknown process.

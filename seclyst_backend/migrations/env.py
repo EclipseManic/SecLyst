@@ -5,8 +5,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from seclyst.database.base import Base
-from seclyst.database import models as _models  # noqa: F401
+from seclyst_backend.database.base import Base
+from seclyst_backend.database import models as _models  # noqa: F401
 
 
 config = context.config

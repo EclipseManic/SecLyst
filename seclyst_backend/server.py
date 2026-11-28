@@ -34,11 +34,11 @@ from . import __version__
 
 ROOT = Path(__file__).resolve().parent.parent
 ENGINES = ROOT / "engines"
-RUNTIME = ROOT / "runtime"
+DATA = ROOT / "data"
 WEB_DIST = ROOT / "web" / "dist"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-ACCESS_TOKEN_FILE = RUNTIME / "access_token"
+ACCESS_TOKEN_FILE = DATA / "access_token"
 
 
 def _load_or_create_access_token() -> str:
@@ -62,7 +62,7 @@ def _load_or_create_access_token() -> str:
         return existing
     token = secrets.token_urlsafe(32)
     try:
-        RUNTIME.mkdir(parents=True, exist_ok=True)
+        DATA.mkdir(parents=True, exist_ok=True)
         ACCESS_TOKEN_FILE.write_text(token, encoding="utf-8")
     except OSError:
         pass
@@ -218,13 +218,13 @@ class Supervisor:
         if self.provider_broker_enabled:
             env.pop("VT_API_KEY", None)
             env.pop("VIRUSTOTAL_API_KEY", None)
-        data_dir = (RUNTIME / tool.spec.id).resolve()
+        data_dir = (DATA / tool.spec.id).resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
         from .providers.credentials import CredentialStore, PROVIDER_ENV_KEYS
         from .api.settings import tool_environment
 
         settings_data = {}
-        settings_path = RUNTIME / "settings.json"
+        settings_path = DATA / "settings.json"
         if settings_path.is_file():
             try:
                 settings_data = json.loads(settings_path.read_text(encoding="utf-8"))
@@ -289,8 +289,8 @@ class Supervisor:
         return command
 
     def start_all(self) -> None:
-        RUNTIME.mkdir(parents=True, exist_ok=True)
-        (RUNTIME / "logs").mkdir(parents=True, exist_ok=True)
+        DATA.mkdir(parents=True, exist_ok=True)
+        (DATA / "logs").mkdir(parents=True, exist_ok=True)
         if not self.start_engines:
             return
         for tool in self.tools.values():
@@ -304,7 +304,7 @@ class Supervisor:
             tool.start_error = f"Port {tool.port} is already in use."
             return
 
-        log_path = RUNTIME / "logs" / f"{tool.spec.id}.log"
+        log_path = DATA / "logs" / f"{tool.spec.id}.log"
         tool.log_handle = log_path.open("a", encoding="utf-8")
         try:
             tool.process = subprocess.Popen(
@@ -369,7 +369,7 @@ class Supervisor:
                 "url": tool.browser_url_for(preferred_host),
                 "port": tool.port,
                 "status": "error",
-                "detail": f"Engine exited with code {exit_code}. See runtime/logs/{tool.spec.id}.log.",
+                "detail": f"Engine exited with code {exit_code}. See data/logs/{tool.spec.id}.log.",
             }
         try:
             health = self._request_json(tool.url.rstrip("/") + tool.spec.health_path, headers={"X-SecLyst-Access": tool.access_token})
@@ -559,9 +559,9 @@ def main(argv: list[str] | None = None) -> int:
     from .jobs.service import JobService
 
     settings = Settings.from_environment()
-    os.environ["SECLYST_SETTINGS_PATH"] = str(settings.runtime_dir / "settings.json")
+    os.environ["SECLYST_SETTINGS_PATH"] = str(settings.data_dir / "settings.json")
     auth = AuthService(
-        settings.runtime_dir,
+        settings.data_dir,
         enabled=settings.auth_enabled,
         session_ttl_seconds=settings.session_ttl_seconds,
     )
@@ -580,7 +580,7 @@ def main(argv: list[str] | None = None) -> int:
         provider_broker.register(VirusTotalAdapter())
     artifact_store = ArtifactStore(
         database,
-        settings.runtime_dir / "artifacts",
+        settings.data_dir / "artifacts",
         max_bytes=settings.artifact_max_bytes,
     )
 
@@ -599,7 +599,7 @@ def main(argv: list[str] | None = None) -> int:
         engine_tokens=supervisor.engine_tokens,
         provider_broker=provider_broker,
         artifact_store=artifact_store,
-        runtime_dir=settings.runtime_dir,
+        data_dir=settings.data_dir,
         auth=auth,
     )
     url = f"http://{args.host}:{args.port}/"

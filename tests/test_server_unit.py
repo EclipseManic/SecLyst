@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from seclyst.server import (
+from seclyst_backend.server import (
     ACCESS_TOKEN_FILE,
     LOOPBACK_HOSTS,
     Supervisor,
@@ -35,27 +35,27 @@ def test_env_file_does_not_override_process_environment(tmp_path: Path, monkeypa
     assert os.environ["SECLYST_TEST_NEW"] == "from file"
 
 
-def test_supervisor_redirects_mutable_engine_state_to_runtime() -> None:
+def test_supervisor_redirects_mutable_engine_state_to_data() -> None:
     supervisor = Supervisor(7000, start_engines=False)
     for tool in supervisor.tools.values():
         env = supervisor._environment(tool)
         if tool.spec.id == "malware":
-            assert env["SECLYST_MALWARE_DATA_DIR"].replace("\\", "/").lower().endswith("/runtime/malware")
+            assert env["SECLYST_MALWARE_DATA_DIR"].replace("\\", "/").lower().endswith("/data/malware")
         elif tool.spec.id == "ioc":
-            assert env["DATABASE_URL"].replace("\\", "/").lower().endswith("/runtime/ioc/ioc_platform.db")
+            assert env["DATABASE_URL"].replace("\\", "/").lower().endswith("/data/ioc/ioc_platform.db")
         elif tool.spec.id == "events":
-            assert env["EVTX_VIEWER_DATA_DIR"].replace("\\", "/").lower().endswith("/runtime/events")
+            assert env["EVTX_VIEWER_DATA_DIR"].replace("\\", "/").lower().endswith("/data/events")
         elif tool.spec.id == "phishing":
-            assert env["SECLYST_PHISHING_DATA_DIR"].replace("\\", "/").lower().endswith("/runtime/phishing")
+            assert env["SECLYST_PHISHING_DATA_DIR"].replace("\\", "/").lower().endswith("/data/phishing")
         elif tool.spec.id == "ruleforge":
-            assert env["RULEFORGE_HOME"].replace("\\", "/").lower().endswith("/runtime/ruleforge")
+            assert env["RULEFORGE_HOME"].replace("\\", "/").lower().endswith("/data/ruleforge")
         assert "http://127.0.0.1:7000" in env["SECLYST_FRAME_ANCESTORS"]
         assert "http://localhost:7000" in env["SECLYST_FRAME_ANCESTORS"]
 
 
 def test_access_token_is_reused_across_restarts(tmp_path: Path, monkeypatch) -> None:
     token_file = tmp_path / "access_token"
-    monkeypatch.setattr("seclyst.server.ACCESS_TOKEN_FILE", token_file)
+    monkeypatch.setattr("seclyst_backend.server.ACCESS_TOKEN_FILE", token_file)
     monkeypatch.delenv("SECLYST_ACCESS_TOKEN", raising=False)
 
     first = _load_or_create_access_token()
@@ -67,7 +67,7 @@ def test_access_token_is_reused_across_restarts(tmp_path: Path, monkeypatch) -> 
 
 
 def test_access_token_env_override(monkeypatch) -> None:
-    monkeypatch.setattr("seclyst.server.ACCESS_TOKEN_FILE", ACCESS_TOKEN_FILE.parent / "unused")
+    monkeypatch.setattr("seclyst_backend.server.ACCESS_TOKEN_FILE", ACCESS_TOKEN_FILE.parent / "unused")
     monkeypatch.setenv("SECLYST_ACCESS_TOKEN", "pinned-token")
     assert _load_or_create_access_token() == "pinned-token"
 

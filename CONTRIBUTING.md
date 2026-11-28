@@ -98,7 +98,7 @@ or `docs`.
 
 The full procedure is at the end of [docs/ENGINES.md](docs/ENGINES.md#adding-or-replacing-an-engine).
 In short: implement the engine, serve `GET /api/health`, honour the access token,
-register a `ToolSpec` in `seclyst/server.py`, add a `TOOLS_REGISTRY` entry in
+register a `ToolSpec` in `seclyst_backend/server.py`, add a `TOOLS_REGISTRY` entry in
 `web/src/data/workspace.ts`, add dependencies to the root manifest, and
 document it.
 

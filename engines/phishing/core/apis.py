@@ -13,7 +13,7 @@ import urllib.parse
 import requests
 
 try:
-    from seclyst.integration.client import EngineControlClient
+    from seclyst_backend.integration.client import EngineControlClient
 except ImportError:
     EngineControlClient = None
 

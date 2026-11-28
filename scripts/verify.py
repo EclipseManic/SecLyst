@@ -34,10 +34,10 @@ def main() -> int:
     if npm is None:
         raise SystemExit("npm is required for Seclyst verification.")
 
-    run([python, "-m", "pytest", "-q", "--cov=seclyst", "--cov-report=term-missing"])
+    run([python, "-m", "pytest", "-q", "--cov=seclyst_backend", "--cov-report=term-missing"])
     run([
         python, "-m", "ruff", "check",
-        "seclyst", "migrations", "scripts", "tests",
+        "seclyst_backend", "scripts", "tests",
         "engines/malware/run.py", "engines/malware/tests/test_seclyst_defaults.py",
         "engines/phishing/run.py", "engines/phishing/core/database.py",
         "engines/phishing/tests/test_seclyst_contract.py",

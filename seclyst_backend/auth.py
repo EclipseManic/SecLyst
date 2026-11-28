@@ -5,7 +5,7 @@ not a multi-tenant account system. It closes the one real gap: the shell used to
 open for anyone who could reach the port, and its account popover said so
 ("This session, not authenticated").
 
-The browser access token in :mod:`seclyst.server` isolates hosted tool frames
+The browser access token in :mod:`seclyst_backend.server` isolates hosted tool frames
 from the shell. That is transport isolation, not identity. This module adds the
 missing identity: a single password, stored only as a salted scrypt hash, a
 short-lived server-side session, and an HttpOnly cookie that gates the
@@ -13,7 +13,7 @@ control-plane API.
 
 Design notes:
 
-* The password hash lives under the runtime directory (``auth.json``) with the
+* The password hash lives under the data directory (``auth.json``) with the
   owning user's read/write bits only where the platform allows it. Nothing is
   written to the database, so a copied database cannot leak the credential.
 * Sessions are held in memory and expire. Restarting SecLyst signs everyone out;
@@ -52,10 +52,10 @@ def _derive(password: str, salt: bytes, n: int, r: int, p: int) -> bytes:
 
 
 class PasswordStore:
-    """One salted scrypt hash persisted under the runtime directory."""
+    """One salted scrypt hash persisted under the data directory."""
 
-    def __init__(self, runtime_dir: Path) -> None:
-        self.path = Path(runtime_dir) / PASSWORD_FILE
+    def __init__(self, data_dir: Path) -> None:
+        self.path = Path(data_dir) / PASSWORD_FILE
 
     def configured(self) -> bool:
         return self.path.is_file()
@@ -81,7 +81,7 @@ class PasswordStore:
             os.chmod(self.path, 0o600)
         except OSError:
             # Windows and some mounts do not map POSIX mode bits; the file still
-            # lives inside the user's own runtime directory.
+            # lives inside the user's own data directory.
             pass
 
     def verify(self, password: str) -> bool:
@@ -146,13 +146,13 @@ class AuthService:
 
     def __init__(
         self,
-        runtime_dir: Path,
+        data_dir: Path,
         *,
         enabled: bool = True,
         session_ttl_seconds: int = 8 * 60 * 60,
     ) -> None:
         self.enabled = enabled
-        self.passwords = PasswordStore(runtime_dir)
+        self.passwords = PasswordStore(data_dir)
         self.sessions = SessionManager(session_ttl_seconds)
 
     @property

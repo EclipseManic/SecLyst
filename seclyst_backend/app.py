@@ -35,7 +35,7 @@ def create_app(
     engine_tokens: dict[str, str] | None = None,
     provider_broker: Any = None,
     artifact_store: Any = None,
-    runtime_dir: Path | None = None,
+    data_dir: Path | None = None,
     auth: AuthService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="SecLyst Control Plane", version=__version__, docs_url="/api/docs", redoc_url=None)
@@ -46,7 +46,7 @@ def create_app(
     app.state.engine_tokens = engine_tokens or {}
     app.state.provider_broker = provider_broker
     app.state.artifact_store = artifact_store
-    app.state.runtime_dir = (runtime_dir or web_root.parent).resolve()
+    app.state.data_dir = (data_dir or web_root.parent).resolve()
     app.state.auth = auth
     app.include_router(auth_router)
     app.include_router(jobs_router)

@@ -25,7 +25,7 @@ from selenium import webdriver  # noqa: E402
 from selenium.webdriver.common.by import By  # noqa: E402
 from selenium.webdriver.support.ui import WebDriverWait  # noqa: E402
 
-from seclyst.server import Supervisor, build_http_server  # noqa: E402
+from seclyst_backend.server import Supervisor, build_http_server  # noqa: E402
 
 
 TOOLS = ("ioc", "malware", "phishing", "events", "ruleforge")

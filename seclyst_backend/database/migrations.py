@@ -18,7 +18,7 @@ def upgrade_database(path: Path, *, backup: bool = True) -> Path | None:
     path = path.expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     config = Config(str(ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(ROOT / "migrations"))
+    config.set_main_option("script_location", str(ROOT / "seclyst_backend" / "migrations"))
     config.set_main_option("sqlalchemy.url", f"sqlite+pysqlite:///{path.as_posix()}")
     target_revision = ScriptDirectory.from_config(config).get_current_head()
 

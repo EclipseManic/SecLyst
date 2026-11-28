@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
-from seclyst.app import create_app
-from seclyst.database.session import Database
-from seclyst.jobs.service import JobService
+from seclyst_backend.app import create_app
+from seclyst_backend.database.session import Database
+from seclyst_backend.jobs.service import JobService
 
 
 class FakeSupervisor:

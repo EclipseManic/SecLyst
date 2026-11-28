@@ -16,7 +16,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from seclyst.api import intake as intake_module
+from seclyst_backend.api import intake as intake_module
 
 
 class FakeResponse:
