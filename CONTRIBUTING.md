@@ -86,7 +86,6 @@ or `docs`.
   run and why.
 - Update the documentation in the same pull request as the change. A page that
   describes behaviour which no longer exists is a bug.
-- Add a `CHANGELOG.md` entry under `Unreleased` for anything a user can notice.
 
 ## Documentation
 
